@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>shade app — ASU & Tempe</title><style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#25392e;background:#f5f5ef;color-scheme:light}*{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:auto;padding:32px 28px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:32px}.brand{font-size:23px;font-weight:700;letter-spacing:-1px}.brand span{color:#73836a}.tag{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#667460}h1{font-size:clamp(30px,5vw,48px);line-height:1.08;letter-spacing:-2px;margin:12px 0}p{color:#667460;font-size:14px;line-height:1.6}.intro{margin-bottom:24px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:28px}.map{position:relative;overflow:hidden;background:#e9ecdf;border-radius:20px;min-height:390px}.map svg{display:block;width:100%;height:100%;min-height:390px}.map-caption{position:absolute;left:20px;top:18px;font-size:11px;letter-spacing:1px;text-transform:uppercase}.north{position:absolute;right:20px;top:18px;font-size:12px}.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:12px;margin:14px 0;color:#52604e}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#1f604a}.dot.shadow{background:#abb6a5}.dot.building{background:#d2d5c7;border:1px solid #a3ac99}.panel h2{font-size:18px;margin:0 0 5px}.field{margin:24px 0}.field label{display:block;font-size:12px;font-weight:650;margin-bottom:10px}.time{font-size:29px;font-weight:600;letter-spacing:-1px;font-variant-numeric:tabular-nums}input[type=range]{width:100%;accent-color:#28654c;margin:12px 0;min-height:24px}.ends{display:flex;justify-content:space-between;font-size:11px;color:#687563}button{font:inherit;cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #b57d27;outline-offset:4px}.modes{display:flex;gap:8px;margin:12px 0 18px}.modes button{border:1px solid #c4ccbd;border-radius:24px;background:transparent;padding:9px 15px;font-size:12px}.modes button[aria-pressed=true]{background:#285640;border-color:#285640;color:white}.route{width:100%;text-align:left;border:1px solid #ccd2c5;background:transparent;border-radius:12px;padding:15px;margin:0 0 10px}.route.selected{background:#fff;border-color:#2c624a}.route strong{display:block;font-size:14px;margin-bottom:7px}.route small{display:block;font-size:12px;color:#61705c;line-height:1.7}.metric{display:flex;justify-content:space-between;border-top:1px solid #d4dacd;padding:13px 0;font-size:13px}.metric b{font-variant-numeric:tabular-nums}.note{font-size:11px;line-height:1.6;margin:16px 0}footer{border-top:1px solid #d4dacd;margin-top:26px;padding-top:16px;font-size:12px;color:#65725e;display:flex;justify-content:space-between;gap:20px}#night{position:absolute;bottom:20px;left:20px;background:#fafbf2;padding:10px;border-radius:8px;font-size:12px} .route-line{stroke-linejoin:round;stroke-linecap:round;fill:none} @media(max-width:740px){main{padding:22px 18px}.layout{grid-template-columns:1fr;gap:20px}header{margin-bottom:24px}.map,.map svg{min-height:300px}.panel{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}.panel>h2,.panel>p,.panel>.field,.panel>.modes,.panel>#routes,.panel>.note{grid-column:1/-1}.field{margin:12px 0}footer{flex-direction:column;gap:6px}}@media(prefers-reduced-motion:no-preference){button{transition:background .15s,border-color .15s}}
+
+.map{height:680px;min-height:430px;touch-action:none}.map svg{height:100%;min-height:0}.map-caption{pointer-events:none;z-index:1;background:#f5f5efd9;padding:7px;border-radius:6px}.map-tools{position:absolute;left:16px;bottom:16px;display:flex;gap:8px}.map-tools button{background:#fafbf4;border:1px solid #bdc8b6;border-radius:8px;padding:10px}.inspector{min-height:42px;font-size:12px;color:#596a53;margin-top:10px}.route{margin-bottom:8px}select{width:100%;padding:10px;background:#fff;border:1px solid #bdc8b6;border-radius:8px;color:inherit;font:inherit;font-size:13px}.dot.estimated{background:#b09b79}a{color:#285640}.map svg{cursor:grab}.map svg:active{cursor:grabbing}.height-toggle{display:block;font-size:12px;margin:10px 0}input[type=checkbox]{accent-color:#285640}@media(max-width:740px){.map{height:470px}.panel>.selection,.panel>.height-toggle{grid-column:1/-1}}
+</style></head><body><main>
+<header><div class="brand">shade<span> app</span></div><div class="tag">ASU + surrounding Tempe</div></header>
+<section class="intro"><div class="tag">Real places. First predictions.</div><h1>Beyond the campus edge.</h1><p>ASU Tempe, downtown, and neighboring blocks. Real OpenStreetMap footprints and walking paths.<br>Shadow study: October 20, 2026 · America/Phoenix · estimated building heights are marked.</p></section>
+<div class="layout"><section aria-label="Geographic walking map"><div class="map">
+<div class="map-caption">Drag to pan · scroll to zoom · tap a building</div><div class="north">↑ N</div>
+<svg id="map" role="img" aria-labelledby="map-title map-description"><title id="map-title">ASU Tempe and neighboring streets</title><desc id="map-description">Real building footprints and pedestrian paths. Predicted building shadows and candidate routes. Building heights are mostly estimated. Use the zoom buttons, route controls and time slider to explore.</desc><g transform="scale(1 -1)"><g id="roads"></g><g id="shadows" fill-rule="evenodd"></g><g id="buildings" fill-rule="evenodd"></g><g id="alternatives"></g><path id="active" fill="none" stroke="#245e46" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><g id="pins"></g></g><g id="labels" fill="#53634c" font-size="12"></g></svg>
+<div class="map-tools" role="group" aria-label="Map zoom"><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="fit-route">Fit walk</button><button id="fit-area">Whole area</button></div></div>
+<div class="legend"><span><i class="dot"></i>Selected route</span><span><i class="dot shadow"></i>Tagged-height shadow</span><span><i class="dot estimated"></i>Estimated-height shadow</span></div><div id="inspector" class="inspector" aria-live="polite">Tap a building for its name, height and source.</div>
+</section><aside class="panel" aria-label="Route controls"><h2>A walk through Tempe.</h2><p>Mapped paths · 1.4 m/s walking</p><div class="selection"><label for="journey">Choose a walk</label><select id="journey"><option value="0">Memorial Union → Noble Library</option><option value="1">Memorial Union → Brickyard / Mill Ave</option><option value="2">Gammage → Hayden Library</option></select></div>
+<div class="field"><label for="departure">Departure time · Oct 20, 2026</label><output class="time" id="time" for="departure"></output><input id="departure" type="range" min="0" max="18" value="12" step="1"><div class="ends"><span>8:00 AM</span><span>5:00 PM</span></div></div>
+<div class="modes" role="group" aria-label="Route preference"><button id="fastest" aria-pressed="false">Fastest</button><button id="shade" aria-pressed="true">More shade</button></div><div id="routes" aria-label="Candidate walking routes"></div>
+<div class="metric"><span>Direct sun</span><b id="sunny"></b></div><div class="metric"><span>Extra walking</span><b id="extra"></b></div><label class="height-toggle"><input id="estimated" type="checkbox" checked> Show estimated-height shadows</label>
+<p class="note" id="coverage"></p><p class="note">Candidates use mapped pedestrian paths; “More shade” minimizes sunny walking time within 35% extra distance among generated candidates. Not a globally optimal route. No trees, terrain, access validation, crossing delays, or live navigation.</p><p class="note" id="snap"></p>
+</aside></div><footer><span>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors · ODbL</a><br><span id="snapshot"></span></span><span>Real footprints · flat-ground prism shadows<br>3 m route samples · 5 min solar bins · 30 min departures</span></footer>
+<noscript><p>Enable JavaScript to use this offline interactive map.</p></noscript></main>
+<script>
+"use strict";
+const campus = __CAMPUS_DATA__;
+const svgNamespace = "http://www.w3.org/2000/svg";
+const map = document.getElementById("map");
+const slider = document.getElementById("departure");
+const journey = document.getElementById("journey");
+let selectedRoute = 0;
+let preference = "shade";
+let currentView;
+function element(tag, attributes) {
+  const node = document.createElementNS(svgNamespace, tag);
+  Object.entries(attributes).forEach(([key,value]) => node.setAttribute(key,value));
+  return node;
+}
+function pathData(points) {
+  return points.map(([x,y],index) => `${index ? "L" : "M"}${x},${y}`).join(" ");
+}
+function minutes(seconds) {return `${(seconds / 60).toFixed(1)} min`;}
+function routes() {return campus.frames[Number(slider.value)].routes[Number(journey.value)];}
+function recommendation() {
+  const candidates = routes();
+  return candidates.map((route,index) => ({...route,index})).sort((a,b) =>
+    preference === "fastest" ? a.duration-b.duration || a.sunny-b.sunny
+    : a.sunny-b.sunny || a.duration-b.duration)[0].index;
+}
+function setView(view) {
+  currentView = view;
+  map.setAttribute("viewBox",view.join(" "));
+  const scale = view[2] / 900;
+  document.getElementById("active").setAttribute("stroke-width", Math.max(3,scale*4));
+  document.getElementById("labels").setAttribute("font-size", Math.max(12,scale*12));
+}
+function fitArea() {
+  const [west,south,east,north] = campus.bounds;
+  setView([west,-north,east-west,north-south]);
+}
+function fitRoute() {
+  const points = routes().flatMap(route=>route.points);
+  const xs=points.map(p=>p[0]), ys=points.map(p=>p[1]);
+  const x=Math.min(...xs), y=Math.max(...ys);
+  setView([x-160,-y-160,Math.max(600,Math.max(...xs)-x+320),Math.max(600,y-Math.min(...ys)+320)]);
+}
+function zoom(factor) {
+  const [x,y,width,height]=currentView;
+  const nextWidth=Math.max(200,Math.min(12000,width*factor));
+  const ratio=nextWidth/width;
+  setView([x+(width-nextWidth)/2,y+(height-height*ratio)/2,nextWidth,height*ratio]);
+}
+function render(choose=true) {
+  const frame=campus.frames[Number(slider.value)];
+  const candidates=routes();
+  if(choose) selectedRoute=recommendation();
+  const selected=candidates[selectedRoute];
+  const hour=Math.floor(frame.minute/60);
+  document.getElementById("time").textContent=`${hour%12||12}:${String(frame.minute%60).padStart(2,"0")} ${hour>=12?"PM":"AM"}`;
+  const showEstimated=document.getElementById("estimated").checked;
+  document.getElementById("shadows").replaceChildren(...frame.shadows
+    .filter(([,source])=>showEstimated || source==="tagged")
+    .map(([path,source])=>element("path",{d:path,fill:source==="tagged"?"#6e8977":"#ab8e61",opacity:.28})));
+  document.getElementById("active").setAttribute("d",pathData(selected.points));
+  document.getElementById("alternatives").replaceChildren(...candidates.filter((_,index)=>index!==selectedRoute)
+    .map(route=>element("path",{d:pathData(route.points),fill:"none",stroke:"#537866","stroke-width":2,"stroke-dasharray":"6 5"})));
+  const routeButtons=candidates.map((route,index)=>{
+    const button=document.createElement("button");button.className=`route${index===selectedRoute?" selected":""}`;
+    button.setAttribute("aria-pressed",String(index===selectedRoute));
+    const strong=document.createElement("strong");strong.textContent=route.name+(index===recommendation()?" · suggested":"");
+    const small=document.createElement("small");small.textContent=`${minutes(route.duration)} · ${route.distance} m · ${route.shade}% shade`;
+    button.append(strong,small);button.addEventListener("click",()=>{selectedRoute=index;render(false);document.querySelectorAll(".route")[index].focus();});return button;
+  });
+  document.getElementById("routes").replaceChildren(...routeButtons);
+  document.getElementById("sunny").textContent=minutes(selected.sunny);
+  document.getElementById("extra").textContent="+"+minutes(selected.duration-candidates[0].duration);
+  ["fastest","shade"].forEach(mode=>document.getElementById(mode).setAttribute("aria-pressed",String(mode===preference)));
+  const info=campus.scenarios[Number(journey.value)];
+  document.getElementById("snap").textContent=`${info.from} → ${info.to}. Routes begin/end at nearby mapped path nodes (${info.offsets.join(" / ")} m from building centers), not verified entrances. Map edges may miss shadows from buildings beyond the downloaded buffer. Hiding estimated shadows changes only the display, not route scores.`;
+  const first=selected.points[0],last=selected.points[selected.points.length-1];
+  document.getElementById("pins").replaceChildren(...[first,last].map(([x,y],index)=>element("circle",{cx:x,cy:y,r:9,fill:index?"#fafbf3":"#245e46",stroke:index?"#245e46":"white","stroke-width":3})));
+  setView(currentView);
+}
+const roadTypes=new Set(["primary","secondary","tertiary","residential","service","unclassified","primary_link","secondary_link"]);
+campus.roads.forEach(road=>{
+  if(["motorway","motorway_link"].includes(road.type)) return;
+  const node=element("path",{d:pathData(road.points),fill:"none",stroke:roadTypes.has(road.type)?"#ccd4c5":"#fafbf3","stroke-width":roadTypes.has(road.type)?9:4,"stroke-linecap":"round"});
+  document.getElementById("roads").append(node);
+});
+campus.buildings.forEach(building=>{
+  const node=element("path",{d:building.path,fill:building.source==="tagged"?"#c4d2c3":"#ded9c9",stroke:"#aeb7a4","stroke-width":.6});
+  const title=element("title",{});title.textContent=`${building.name} · ${building.height} m · ${building.source}`;node.append(title);
+  node.addEventListener("click",()=>{document.getElementById("inspector").textContent=`${building.name} · ${building.height} m · ${building.source==="tagged"?"OSM height tag (not field-verified)":building.source==="levels"?"estimated from levels × 3 m":"assumed 9 m; height missing"} · OSM ${building.osm_id}`;});
+  document.getElementById("buildings").append(node);
+});
+// Sparse labels remain independent of imported markup and never become HTML.
+const knownNames=new Set(["Memorial Union","Hayden Library","Brickyard Engineering","Noble Science and Engineering Library","Grady Gammage Memorial Auditorium"]);
+campus.buildings.filter(building=>knownNames.has(building.name)).forEach(building=>{
+  const coordinates=building.path.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const label=element("text",{x:coordinates[0],y:-coordinates[1]-18});label.textContent=building.name.replace("Science and Engineering ","").replace("Grady Gammage Memorial Auditorium","Gammage");document.getElementById("labels").append(label);
+});
+const total=campus.buildings.length;
+document.getElementById("coverage").textContent=`${total.toLocaleString()} building polygons in view: ${campus.coverage.tagged||0} with tagged heights, ${campus.coverage.levels||0} estimated from floors, ${campus.coverage.assumed||0} using a 9 m fallback. Predicted shade is highly uncertain where heights are missing. Shadows show departure time; traversal scores advance time in 5 min solar bins (±2.5 min).`;
+document.getElementById("snapshot").textContent=`Map snapshot ${campus.snapshot.replace("T"," ").replace("Z"," UTC")}`;
+fitArea();render();fitRoute();
+slider.addEventListener("input",()=>render());journey.addEventListener("change",()=>{render();fitRoute();});
+document.getElementById("estimated").addEventListener("change",()=>render(false));
+["fastest","shade"].forEach(mode=>document.getElementById(mode).addEventListener("click",()=>{preference=mode;render();}));
+document.getElementById("zoom-in").addEventListener("click",()=>zoom(.75));document.getElementById("zoom-out").addEventListener("click",()=>zoom(1.33));document.getElementById("fit-route").addEventListener("click",fitRoute);document.getElementById("fit-area").addEventListener("click",fitArea);
+map.addEventListener("wheel",event=>{event.preventDefault();zoom(event.deltaY>0?1.15:.87);},{passive:false});
+let drag=null;
+function mapPoint(event) {return new DOMPoint(event.clientX,event.clientY).matrixTransform(map.getScreenCTM().inverse());}
+map.addEventListener("pointerdown",event=>{const point=mapPoint(event);drag={point,view:[...currentView],x:event.clientX,y:event.clientY};});
+map.addEventListener("pointermove",event=>{if(!drag)return;const point=mapPoint(event);const dx=point.x-drag.point.x,dy=point.y-drag.point.y;setView([currentView[0]-dx,currentView[1]-dy,currentView[2],currentView[3]]);});
+window.addEventListener("pointerup",()=>{drag=null;});map.addEventListener("pointercancel",()=>{drag=null;});
+</script></body></html>

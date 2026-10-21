@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>shade app — first walk</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#25392e;background:#f5f5ef;color-scheme:light}*{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:auto;padding:32px 28px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:32px}.brand{font-size:23px;font-weight:700;letter-spacing:-1px}.brand span{color:#73836a}.tag{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#667460}h1{font-size:clamp(30px,5vw,48px);line-height:1.08;letter-spacing:-2px;margin:12px 0}p{color:#667460;font-size:14px;line-height:1.6}.intro{margin-bottom:24px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:28px}.map{position:relative;overflow:hidden;background:#e9ecdf;border-radius:20px;min-height:390px}.map svg{display:block;width:100%;height:100%;min-height:390px}.map-caption{position:absolute;left:20px;top:18px;font-size:11px;letter-spacing:1px;text-transform:uppercase}.north{position:absolute;right:20px;top:18px;font-size:12px}.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:12px;margin:14px 0;color:#52604e}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#1f604a}.dot.shadow{background:#abb6a5}.dot.building{background:#d2d5c7;border:1px solid #a3ac99}.panel h2{font-size:18px;margin:0 0 5px}.field{margin:24px 0}.field label{display:block;font-size:12px;font-weight:650;margin-bottom:10px}.time{font-size:29px;font-weight:600;letter-spacing:-1px;font-variant-numeric:tabular-nums}input[type=range]{width:100%;accent-color:#28654c;margin:12px 0;min-height:24px}.ends{display:flex;justify-content:space-between;font-size:11px;color:#687563}button{font:inherit;cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #b57d27;outline-offset:4px}.modes{display:flex;gap:8px;margin:12px 0 18px}.modes button{border:1px solid #c4ccbd;border-radius:24px;background:transparent;padding:9px 15px;font-size:12px}.modes button[aria-pressed=true]{background:#285640;border-color:#285640;color:white}.route{width:100%;text-align:left;border:1px solid #ccd2c5;background:transparent;border-radius:12px;padding:15px;margin:0 0 10px}.route.selected{background:#fff;border-color:#2c624a}.route strong{display:block;font-size:14px;margin-bottom:7px}.route small{display:block;font-size:12px;color:#61705c;line-height:1.7}.metric{display:flex;justify-content:space-between;border-top:1px solid #d4dacd;padding:13px 0;font-size:13px}.metric b{font-variant-numeric:tabular-nums}.note{font-size:11px;line-height:1.6;margin:16px 0}footer{border-top:1px solid #d4dacd;margin-top:26px;padding-top:16px;font-size:12px;color:#65725e;display:flex;justify-content:space-between;gap:20px}#night{position:absolute;bottom:20px;left:20px;background:#fafbf2;padding:10px;border-radius:8px;font-size:12px} .route-line{stroke-linejoin:round;stroke-linecap:round;fill:none} @media(max-width:740px){main{padding:22px 18px}.layout{grid-template-columns:1fr;gap:20px}header{margin-bottom:24px}.map,.map svg{min-height:300px}.panel{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}.panel>h2,.panel>p,.panel>.field,.panel>.modes,.panel>#routes,.panel>.note{grid-column:1/-1}.field{margin:12px 0}footer{flex-direction:column;gap:6px}}@media(prefers-reduced-motion:no-preference){button{transition:background .15s,border-color .15s}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="brand">shade<span> app</span></div><div class="tag">Prototype 01 · offline</div></header>
+<section class="intro"><div class="tag">A little less sun. A better walk.</div><h1>Find your shady side.</h1><p>Explore a synthetic neighborhood using the Sun’s position at ASU Tempe.<br>June 21, 2026 · America/Phoenix · no real campus buildings yet.</p></section>
+<div class="layout">
+<section aria-label="Walking map">
+<div class="map"><div class="map-caption">Local walking study · 350 × 240 m</div><div class="north">↑ N</div>
+<svg id="map" viewBox="-12 -25 374 285" role="img" aria-labelledby="map-title map-description"><title id="map-title">Synthetic shade and walking routes</title><desc id="map-description">Eight rectangular buildings with changing ground shadows. Three walking paths connect start A to destination B. Choose departure time and a route using the controls.</desc><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="#d8decd" stroke-width=".3"/></pattern></defs><g transform="translate(0 230) scale(1 -1)"><rect x="0" y="0" width="350" height="230" fill="url(#grid)"/><g id="paths" stroke="#f9faf3" stroke-width="10" fill="none" stroke-linejoin="round"></g><g id="shadows" fill="#899b87" opacity=".42"></g><g id="buildings"></g><g id="alternatives"></g><path id="active" class="route-line" stroke="#245e46" stroke-width="3.5"/><circle cx="25" cy="115" r="6" fill="#245e46" stroke="white" stroke-width="2"/><circle cx="310" cy="115" r="6" fill="#fafaf4" stroke="#245e46" stroke-width="2"/></g><text x="16" y="96" font-size="9" fill="#294832">A · Start</text><text x="288" y="96" font-size="9" fill="#294832">B · Finish</text><path d="M18 215h50m-50 -2v4m50 -4v4" stroke="#687960" stroke-width="1"/><text x="18" y="209" font-size="7" fill="#687960">50 m</text></svg>
+<div id="night" hidden>No direct sunlight · Sun below the horizon</div></div>
+<div class="legend"><span><i class="dot"></i>Selected route</span><span><i class="dot shadow"></i>Building shadow</span><span><i class="dot building"></i>Building</span></div>
+</section>
+<aside class="panel" aria-label="Route controls"><h2>One walk. Three ways.</h2><p style="margin-top:0">A → B · walking at 1.4 m/s</p>
+<div class="field"><label for="departure">Departure time</label><output class="time" id="time" for="departure"></output><input id="departure" type="range" min="0" max="56" value="24" step="1"><div class="ends"><span>6:00 AM</span><span>8:00 PM</span></div></div>
+<div class="modes" role="group" aria-label="Route preference"><button id="fastest" aria-pressed="false">Fastest</button><button id="shade" aria-pressed="true">More shade</button></div>
+<div id="routes" aria-label="Available routes"></div>
+<div class="metric"><span>Time in direct sun</span><b id="sunny"></b></div><div class="metric"><span>Extra walking time</span><b id="extra"></b></div>
+<p class="note" id="method">Best of three fixed paths, not full routing. “More shade” minimizes sunny walking time among paths within 60% extra distance. Shadows show departure time; route scores account for arrival along the walk.</p>
+</aside></div>
+<footer><span>Illustrative geometry · buildings 16–32 m tall</span><span>Solar model: pvlib · 2 m route samples · 15 min time steps</span></footer>
+<noscript><p>This interactive file needs JavaScript enabled in your browser.</p></noscript>
+</main>
+<script>
+"use strict";
+const demo = __DEMO_DATA__;
+const svgNamespace = "http://www.w3.org/2000/svg";
+let selectedRoute = 0;
+let preference = "shade";
+const slider = document.getElementById("departure");
+function pathData(points) {
+  return points.map((point, index) => `${index ? "L" : "M"}${point[0]} ${point[1]}`).join(" ");
+}
+function svgElement(tag, attributes) {
+  const element = document.createElementNS(svgNamespace, tag);
+  Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+  return element;
+}
+function minutesLabel(seconds) {
+  return `${(seconds / 60).toFixed(1)} min`;
+}
+function recommendation(frame) {
+  const shortestDistance = Math.min(...frame.routes.map(route => route.distance));
+  const eligible = frame.routes.map((route, index) => ({...route, index}))
+    .filter(route => route.distance <= shortestDistance * 1.6);
+  eligible.sort((a, b) => preference === "fastest"
+    ? a.duration - b.duration || a.sunny - b.sunny
+    : a.sunny - b.sunny || a.duration - b.duration);
+  return eligible[0].index;
+}
+function render(chooseRecommended = true) {
+  const frame = demo.frames[Number(slider.value)];
+  if (chooseRecommended) selectedRoute = recommendation(frame);
+  const hour = Math.floor(frame.minute / 60);
+  document.getElementById("time").textContent = `${hour % 12 || 12}:${String(frame.minute % 60).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+  document.getElementById("night").hidden = frame.elevation > 0;
+  document.getElementById("shadows").replaceChildren(...frame.shadows.map(points =>
+    svgElement("polygon", {points: points.map(point => point.join(",")).join(" ")})));
+  document.getElementById("active").setAttribute("d", pathData(demo.routes[selectedRoute].points));
+  document.getElementById("alternatives").replaceChildren(...demo.routes
+    .filter((_, index) => index !== selectedRoute)
+    .map(route => svgElement("path", {d: pathData(route.points), class: "route-line", stroke: "#8b9d82", "stroke-width": 1.5, "stroke-dasharray": "3 3"})));
+  const routeButtons = frame.routes.map((route, index) => {
+    const button = document.createElement("button");
+    button.className = `route${index === selectedRoute ? " selected" : ""}`;
+    button.setAttribute("aria-pressed", String(index === selectedRoute));
+    button.innerHTML = `<strong>${demo.routes[index].name}${index === recommendation(frame) ? " · suggested" : ""}</strong><small>${minutesLabel(route.duration)} · ${route.distance} m · ${route.shade}% shade</small>`;
+    button.addEventListener("click", () => { selectedRoute = index; render(false); document.querySelectorAll(".route")[index].focus(); });
+    return button;
+  });
+  document.getElementById("routes").replaceChildren(...routeButtons);
+  const route = frame.routes[selectedRoute];
+  const fastestDuration = Math.min(...frame.routes.map(item => item.duration));
+  document.getElementById("sunny").textContent = minutesLabel(route.sunny);
+  document.getElementById("extra").textContent = `+${minutesLabel(route.duration - fastestDuration)}`;
+  ["fastest", "shade"].forEach(mode => document.getElementById(mode).setAttribute("aria-pressed", String(mode === preference)));
+}
+demo.routes.forEach(route => document.getElementById("paths").append(svgElement("path", {d: pathData(route.points)})));
+demo.buildings.forEach(([x1, y1, x2, y2, height]) => {
+  const building = svgElement("rect", {x: x1, y: y1, width: x2 - x1, height: y2 - y1, fill: "#d1d6c6", stroke: "#acb69e", "stroke-width": .7, rx: 1});
+  const title = svgElement("title", {});
+  title.textContent = `Synthetic building · ${height} metres tall`;
+  building.append(title);
+  document.getElementById("buildings").append(building);
+});
+slider.addEventListener("input", () => render());
+["fastest", "shade"].forEach(mode => document.getElementById(mode).addEventListener("click", () => { preference = mode; render(); }));
+render();
+</script>
+</body>
+</html>
