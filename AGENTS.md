@@ -31,3 +31,13 @@ Read README.md and docs/STATUS.md first, then the relevant architecture and deci
 - Keep tests readable with descriptive scenario names and simple fixtures.
 - Run `python -m ruff format --check .`, `python -m ruff check .`, and
   `python -m pytest` before reporting a Python change complete.
+
+## Offline map changes
+
+- Keep shadow computation in `shadow_field.py` and routing in `routing.py`.
+- Building parts modify only their own unambiguous parent; preserve elevated
+  lower volumes and part-level heights. Never use a global union for ownership.
+- Run `npm test` after browser-side routing/endpoint/viewport changes. These are
+  graph, bound and DOM tests; distinguish them from real browser visual checks.
+- Height enrichment is paused by the owner. Do not add or change height sources
+  unless requested again. Existing uncertainties remain visible.

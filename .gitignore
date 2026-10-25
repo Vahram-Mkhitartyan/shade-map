@@ -8,3 +8,4 @@ dist/
 
 .cache/
 demo/campus.html
+node_modules/

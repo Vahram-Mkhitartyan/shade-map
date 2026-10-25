@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "creativity-commons-west-colonnade",
+      "properties": {
+        "name": "Creativity Commons covered walkway",
+        "building_osm_id": "way/28878239",
+        "side": "west / Palm Walk-facing",
+        "roof_covered": true,
+        "columns_along_path": true,
+        "extent": "full building length between west facade corners",
+        "source": "Owner screenshot and full-building-length confirmation, 2026-10-21",
+        "trace_method": "Approximate facade-aligned trace, 1.5 m west of OSM roofline",
+        "alignment_verified_on_site": false,
+        "width_m": null,
+        "roof_height_m": null,
+        "routing_enabled": true,
+        "routing_status": "both Palm Walk connections confirmed by owner",
+        "solar_model_status": "covered-path shade proxy; ignores side-entry sunlight and column obstructions",
+        "connection_observation": "Owner confirms both ends connect directly to Palm Walk, 2026-10-21.",
+        "both_ends_connected": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -111.932648,
+            33.4181708
+          ],
+          [
+            -111.9326374,
+            33.4175093
+          ]
+        ]
+      }
+    }
+  ]
+}

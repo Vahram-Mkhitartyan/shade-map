@@ -1,7 +1,7 @@
 """Read a cached OpenStreetMap extract into local metric geometry."""
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import hypot
 from typing import Dict, List, Tuple
 
@@ -86,6 +86,10 @@ class MapBuilding:
     osm_id: str
     name: str
     height_source: str
+    height_reference: str = ""
+    is_part: bool = False
+    parent_id: str = ""
+    ownership: str = "outline"
 
 
 def _coordinates(geometry: List[dict]) -> List[Tuple[float, float]]:
@@ -105,12 +109,29 @@ def load_buildings(elements: List[dict]) -> Tuple[List[MapBuilding], int]:
         for element in elements
         if element["type"] == "relation"
         and "building" in element.get("tags", {})
+        and element.get("tags", {}).get("type") != "building"
         for member in element.get("members", [])
         if member["type"] == "way"
     }
     parts = []
+    explicit_owners = {}
+    for relation in elements:
+        if relation.get("tags", {}).get("type") != "building":
+            continue
+        outlines = [
+            f"{member['type']}/{member['ref']}"
+            for member in relation.get("members", [])
+            if member.get("role") == "outline"
+        ]
+        if len(outlines) == 1:
+            for member in relation.get("members", []):
+                if member.get("role") == "part":
+                    key = f"{member['type']}/{member['ref']}"
+                    explicit_owners.setdefault(key, set()).add(outlines[0])
     for element in elements:
         tags = element.get("tags", {})
+        if tags.get("type") == "building":
+            continue
         if not ("building" in tags or "building:part" in tags):
             continue
         if element["type"] == "way" and element["id"] in member_ids:
@@ -163,33 +184,79 @@ def load_buildings(elements: List[dict]) -> Tuple[List[MapBuilding], int]:
                     results.append(item)
         except (KeyError, ValueError, TypeError):
             skipped += 1
-    # Remove parent volume underneath detailed parts to avoid double blocking.
-    if parts:
-        part_union = unary_union([item.model.footprint for item in parts])
-        clipped = []
-        for item in results:
-            remainder = item.model.footprint.difference(part_union)
-            polygons = (
-                [remainder]
-                if remainder.geom_type == "Polygon"
-                else list(getattr(remainder, "geoms", []))
+    return resolve_part_ownership(results, parts, explicit_owners), skipped
+
+
+def resolve_part_ownership(
+    parents: List[MapBuilding],
+    parts: List[MapBuilding],
+    explicit_owners: dict,
+) -> List[MapBuilding]:
+    """Subtract ground parts only from their own unambiguous parent.
+
+    Explicit building-relation membership takes precedence. Otherwise require
+    one parent covering >=99% of the part. Orphan or ambiguous parts never
+    cut any outline. Elevated parts retain the parent's lower solid volume.
+    """
+    owned = {item.osm_id: [] for item in parents}
+    resolved = []
+    for part in parts:
+        declared = explicit_owners.get(part.osm_id, set())
+        candidates = [
+            parent
+            for parent in parents
+            if parent.osm_id != part.osm_id
+            and parent.model.footprint.intersection(part.model.footprint).area
+            / part.model.footprint.area
+            >= 0.99
+            and (not declared or parent.osm_id in declared)
+        ]
+        parent_ids = {parent.osm_id for parent in candidates}
+        if len(parent_ids) != 1 or len(declared) > 1:
+            resolved.append(
+                replace(
+                    part,
+                    is_part=True,
+                    ownership="ambiguous"
+                    if parent_ids or len(declared) > 1
+                    else "orphan",
+                )
             )
-            for polygon in polygons:
-                if polygon.geom_type == "Polygon" and polygon.area >= 1:
-                    clipped.append(
-                        MapBuilding(
-                            Building(
-                                polygon,
-                                item.model.height_m,
-                                item.model.min_height_m,
-                            ),
-                            item.osm_id,
-                            item.name,
-                            item.height_source,
-                        )
+            continue
+        parent_id = next(iter(parent_ids))
+        status = "relation" if declared else "containment"
+        resolved.append(
+            replace(part, is_part=True, parent_id=parent_id, ownership=status)
+        )
+        owned[parent_id].append(part)
+    results = []
+    for parent in parents:
+        ground_parts = [
+            part.model.footprint
+            for part in owned[parent.osm_id]
+            if part.model.min_height_m <= parent.model.min_height_m
+        ]
+        remainder = parent.model.footprint
+        if ground_parts:
+            remainder = remainder.difference(unary_union(ground_parts))
+        polygons = (
+            [remainder]
+            if remainder.geom_type == "Polygon"
+            else list(getattr(remainder, "geoms", []))
+        )
+        for polygon in polygons:
+            if polygon.geom_type == "Polygon" and polygon.area >= 1:
+                results.append(
+                    replace(
+                        parent,
+                        model=Building(
+                            polygon,
+                            parent.model.height_m,
+                            parent.model.min_height_m,
+                        ),
                     )
-        results = clipped
-    return results + parts, skipped
+                )
+    return results + resolved
 
 
 def walking_graph(elements: List[dict]) -> nx.Graph:

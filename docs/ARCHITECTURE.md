@@ -15,7 +15,7 @@ routes → stability policy → GeoJSON and metrics for a 2D map.
 | data | Geographic queries, projection, provenance, caching | Cached OSM prototype |
 | exposure | Sample paths at their traversal timestamps | Implemented; campus solar bins 5 min |
 | routing | Baseline and shade-aware candidates | Bounded candidate prototype |
-| navigation | Deviation, route commitment, reroute thresholds | Planned |
+| navigation | Observed clock, delay/condition events, repeated replanning | Core prototype |
 | API/UI | Deliver geometry and metrics to a lightweight map | Offline file; API planned |
 
 ## Physical contract
@@ -56,9 +56,78 @@ same observed position/time, with switching penalties and natural decision point
 Timing uncertainty and geometry quality remain explicit; predicted precision is not
 equivalent to field accuracy.
 
+## Live routing contract
+
+Live routing maintains separate predicted, observed and condition clocks. Search
+uses a bounded time-expanded state `(node, arrival bucket)` rather than one label
+per node. Each edge is priced at its predicted midpoint time, including static
+door delays, reported opening intervals and active live conditions. The current
+prototype uses 30-second arrival buckets and five-minute solar fields.
+
+`LiveRouteSession` owns the observed position and time. It replans when the snapped
+node changes, at least 30 observed seconds pass, or a delay/condition event arrives.
+An unplanned stop advances the observed clock before replanning. Conditions are
+edge-scoped and time-bounded: `delay` changes traversal time, `blocked` removes an
+edge, and `discomfort` adds a seconds-equivalent preference cost without falsifying
+travel time. Outdoor fallback remains available when graph connectivity permits.
+
+This is the navigation core, not live sensing. The offline artifact has no GPS,
+traffic-signal feed, crowdsourcing backend, uncertainty distribution or route-switch
+hysteresis yet. It also cannot route beyond the exported date/time solar window.
+See `docs/LIVE_ROUTING.md` for the event model and staged path to the phone app.
+
 ## Real-area projection
 
 The campus adapter uses origin-shifted UTM 12N metres rather than exact local ENU.
 It rotates true East/North solar directions into the grid axes before projecting
 shadows. Latitude/longitude never enter the polygon engine. See CAMPUS_DATA.md
 for the bounds, source attribution, scale approximation, and data-edge limits.
+
+## Offline custom routing boundary
+
+`shadow_field.py` owns indexed Sun/shadow states. `routing.py` owns trajectory
+sampling, detour-bounded candidate generation, and exposure evaluation. The
+builder only assembles and serializes those results. Static geometry and source
+metadata never become graph-search responsibilities.
+
+To retain a double-clickable file, export the connected graph and five-minute
+edge sunlight fractions (3 m spatial samples, 1/255 storage resolution). Browser
+Dijkstra creates custom candidates; edge midpoint arrival times select sunlight
+bins for scoring. Presets retain per-sample arrival scoring. Neither search
+claims global time-dependent optimality. This is a prototype transport format,
+not a decision to ship a large precomputed region as the final phone architecture.
+
+`map-viewport.js` clamps all views to loaded bounds. Context geometry is clipped;
+custom pins retain their requested positions and expose bounded graph snapping.
+The offline file does not infer access paths from a pin to the graph.
+
+## MU and Hayden indoor routing enabled — October 21, 2026
+
+Owner-marked black corridor traces are now enabled: MU Main Level, including
+its marked entrance branches; Hayden Level One, Cady Mall west entrance to
+Orange Mall south entrance. Owner confirms step-free, bidirectional passage and
+all marked doors usable throughout reported hours. Hayden is confirmed daily
+07:00–midnight; MU Mon–Fri 06:30–22:00, Sat 08:00–22:00, Sun 10:00–22:00.
+This supersedes earlier statements that both candidates remain disabled.
+Noble, SDFC and Hayden concourse shortcuts remain excluded.
+
+`data/indoor_passages.json` preserves pixel traces, controls, access evidence and
+weekly schedules. `indoor_passages.py` registers coordinates in local metres and
+splits nearby exterior edges for each confirmed door; ties crossing the building
+interior are rejected. MU uses ASU entrance records 249/248/247 as three controls;
+the unmarked southwest doorway is only a registration control, not another added
+route. Hayden uses entrance records 222/224 and an approximate OSM northwest
+facade control. Doors snap to the mapped facade within a 12 m registration limit;
+exterior ties are bounded at 25 m. Geometry and distances are approximate, not
+surveyed; floor plans and simplified OSM footprints differ.
+
+Indoor centerlines receive zero direct-sun exposure. Exterior ties are evaluated
+separately. Each door crossing adds an explicitly assumed 10 seconds; actual door,
+queue and crowd delays are unknown. Route cards label trips via MU or Hayden;
+brown lines show available corridor geometry. Full edge traversal must fit within
+reported opening hours; custom search checks predicted arrival and exit times,
+retaining outdoor alternatives. It still uses bounded candidates with one label
+per node, not a globally optimal time-dependent solver. Python presets are for
+the existing Tuesday 08:00–17:00 study, entirely within both opening schedules;
+no arbitrary-day preset service is claimed. The offline solar date/time window
+is unchanged. Holiday/event closures and live door status are unavailable.

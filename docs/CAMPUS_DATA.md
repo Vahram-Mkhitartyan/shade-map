@@ -42,8 +42,9 @@ present and grid convergence/scale vary slightly across the extract.
 - Otherwise estimate `building:levels × 3 m`.
 - Otherwise use an explicitly marked 9 m assumption, including unknown heights.
 - `min_height` creates an elevated base; underground levels are not added.
-- Relation inner rings remain courtyards; building parts replace overlapping
-  parent volume, with uncovered parent area retained.
+- Relation inner rings remain courtyards. Ground-level parts replace only their
+  unambiguous parent volume. Elevated parts preserve lower parent volume; orphan
+  and ambiguous parts never cut unrelated buildings.
 - Tagged height does not imply measured or field-verified height.
 - The map inspector exposes OSM identity, name, height and provenance.
 - Hiding estimated shadows affects display only; scores still use the full model.
@@ -86,3 +87,59 @@ The fetch requires internet access; avoid repeated requests when the cache is
 sufficient. The build uses `.cache/campus-osm.json` and creates `demo/campus.html`.
 Build runtime and file size increase with footprint complexity. Only the finished
 HTML is needed to view the map, and it makes no network requests.
+
+## ASU facility-height enrichment
+
+The owner supplied https://www.asu.edu/about/map. Its embedded Experience Builder
+map references the public University Facility polygon layer:
+
+https://gisprodportal.asu.edu/server/rest/services/University_Facilities/FeatureServer/1
+
+Source credit: ASU University Facility Records Management Group (UFRM). This is
+separate from the ODbL-licensed OSM layer. The public ArcGIS item provides no
+explicit reuse-license text; public availability is not treated as an ODbL grant
+for ASU data. The current use is a local research prototype; resolve reuse terms
+before distributing ASU-derived data with a published product.
+
+The layer identifies rooflines and exposes `BLDG_HEIGHT_FT`. In the queried
+context there are 254 facilities, 210 with positive heights. Their ExtractDateTime
+is October 19, 2026 at 22:28 UTC; that is a database export timestamp, not proof
+that every height was recently measured.
+
+Match heights to existing OSM polygons using >=60% OSM footprint overlap and
+intersection-over-union >=20%. Reject ambiguous candidates when the runner-up
+has at least 80% of the best coverage. Preserve all OSM building-part heights unchanged.
+Do not relocate footprints or assign height by nearest name/centroid alone.
+The importer matched 199 polygons in the context extract, 198 in the visible
+window. One facility can
+correspond to multiple OSM polygons, so these are not unique facility counts.
+ASU matches receive separate provenance and per-record source references.
+
+Use `.venv/bin/python scripts/fetch_asu.py` before building from a fresh cache.
+`build_campus.py` requires both the OSM and ASU caches. The map inspector exposes
+source and units, and the legend groups ASU and OSM tagged heights as recorded
+heights. Neither is claimed to be independently field-verified.
+
+## Custom endpoints and offline field export
+
+The graph is exported with 133 five-minute sunlight states from 08:00 through
+19:00. Each edge fraction aggregates <=3 m spatial samples in Python and is stored
+as an unsigned byte (nearest 1/255). Browser graph search uses these precomputed
+fields; no polygon geometry engine or network request is needed. Custom exposure
+uses each edge's midpoint arrival time with nearest five-minute solar state, so
+it differs slightly from preset per-sample arrival scoring. Walks are capped at
+two hours; departures remain 08:00–17:00.
+
+Arbitrary pin positions snap to the nearest connected node within 100 m. Show
+requested and snapped positions separately. Dotted connectors are not verified
+walkable and are excluded from distance/time/exposure. Unsupported pins retain
+their placement and show an error rather than an invented route. Same-node trips
+return zero travel duration. Pan/zoom and pin dragging stop at the visible bounds;
+outer-context buildings are clipped from display but still contribute shadows.
+
+Height enrichment is paused by the owner. Current source estimates remain as
+documented; this refactor does not introduce Overture or other new height data.
+
+After an interface-only edit, run `python scripts/build_campus.py --render-only`
+to repackage `.cache/campus-payload.json` without recalculating shadows. A full
+build is required after geometry, ownership, routing-model or solar changes.

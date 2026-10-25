@@ -1,0 +1,122 @@
+[
+  {
+    "id": "mu-main-public-corridor",
+    "name": "MU Main Level passage",
+    "routing_enabled": true,
+    "source": "Owner-marked floor plan, confirmed bidirectional, step-free and usable during reported building hours, 2026-10-21",
+    "schedule": [
+      [390, 1320],
+      [390, 1320],
+      [390, 1320],
+      [390, 1320],
+      [390, 1320],
+      [480, 1320],
+      [600, 1320]
+    ],
+    "controls": [
+      {
+        "record": 249,
+        "pixel": [222, 147],
+        "coordinates": [-111.93458217339348, 33.418146197091076]
+      },
+      {
+        "record": 248,
+        "pixel": [136, 942],
+        "coordinates": [-111.93478357029029, 33.417359253742006]
+      },
+      {
+        "record": 247,
+        "pixel": [716, 974],
+        "coordinates": [-111.93402081257918, 33.41720896384907]
+      }
+    ],
+    "pixels": {
+      "north_west": [222, 147],
+      "north_mid": [250, 147],
+      "north_east": [281, 147],
+      "north_junction": [222, 185],
+      "north_branch": [250, 175],
+      "north_bend": [281, 167],
+      "turn": [222, 951],
+      "south": [222, 1130],
+      "east_junction": [580, 954],
+      "east_bend": [610, 970],
+      "east_south": [628, 997],
+      "east_mid_bend": [660, 961],
+      "east_mid": [676, 974],
+      "east_end_bend": [704, 963],
+      "east_end": [716, 974]
+    },
+    "links": [
+      ["north_west", "north_junction"],
+      ["north_mid", "north_branch"],
+      ["north_east", "north_bend"],
+      ["north_bend", "north_branch"],
+      ["north_branch", "north_junction"],
+      ["north_junction", "turn"],
+      ["turn", "south"],
+      ["turn", "east_junction"],
+      ["east_junction", "east_bend"],
+      ["east_bend", "east_south"],
+      ["east_junction", "east_mid_bend"],
+      ["east_mid_bend", "east_mid"],
+      ["east_mid_bend", "east_end_bend"],
+      ["east_end_bend", "east_end"]
+    ],
+    "doors": [
+      "north_west",
+      "north_mid",
+      "north_east",
+      "south",
+      "east_south",
+      "east_mid",
+      "east_end"
+    ],
+    "geometry_note": "Approximate affine registration to three ASU entrance records. Unmarked southwest entrance is a control only, not an added branch. Door locations projected to OSM exterior within 12 m. Floor-plan distance and individual door placement are estimates.",
+    "building": "Memorial Union"
+  },
+  {
+    "id": "hayden-level-one",
+    "name": "Hayden Level One passage",
+    "building": "Hayden Library",
+    "routing_enabled": true,
+    "source": "Owner-marked west-to-south lobby route; owner confirms step-free bidirectional access and daily 07:00-midnight hours, 2026-10-21",
+    "schedule": [
+      [420, 1440],
+      [420, 1440],
+      [420, 1440],
+      [420, 1440],
+      [420, 1440],
+      [420, 1440],
+      [420, 1440]
+    ],
+    "controls": [
+      {
+        "record": 222,
+        "pixel": [183, 570],
+        "coordinates": [-111.93489337046915, 33.41904962109374]
+      },
+      {
+        "record": 224,
+        "pixel": [462, 1128],
+        "coordinates": [-111.9345999241035, 33.41853896840558]
+      },
+      {
+        "source": "OSM main-volume northwest facade corner, approximate correspondence",
+        "pixel": [183, 102],
+        "local": [-634.8809463336365, -518.7655772264116]
+      }
+    ],
+    "pixels": {
+      "west": [183, 570],
+      "turn": [462, 570],
+      "south": [462, 1128]
+    },
+    "doors": ["west", "south"],
+    "links": [
+      ["west", "turn"],
+      ["turn", "south"]
+    ],
+    "geometry_note": "Approximate registration using ASU Level One entrances 222/224 and OSM northwest facade control. West and south doors projected to the building exterior. Distance is estimated, not surveyed. Concourse elevator entrance 223 is excluded."
+  }
+]

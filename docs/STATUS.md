@@ -2,65 +2,143 @@
 
 ## Current deliverable
 
-`demo/campus.html` is a self-contained real-area map for ASU Tempe, downtown and
-neighboring blocks. It works offline. `demo/index.html` preserves the synthetic
-first demo. The eventual app targets both iPhone and Android.
+`demo/campus.html` is the offline real-area map for ASU Tempe and neighboring
+blocks. It includes presets plus custom start/finish pins. `demo/index.html`
+retains the earlier synthetic demo. Eventual platforms: iPhone and Android.
 
-## Implemented
+## Implemented in this pass
 
-- Timezone-aware pvlib solar state and metric rectangular ray fixtures.
-- Polygon-prism shadows with concave footprints, holes and elevated bases.
-- WGS84-to-UTM 12N projection with an explicit local origin and solar-vector
-  rotation from true north into map-grid north.
-- Cached OpenStreetMap building ways/relations, building parts, height provenance,
-  and a graph connected through shared pedestrian nodes.
-- Three example walks, including Memorial Union to Brickyard/Mill Avenue.
-- Shortest-distance baseline and shade-weighted candidates, followed by
-  arrival-time exposure evaluation with a 35% distance allowance.
-- Time controls, pan/zoom, whole-area view, building inspection, and a display
-  toggle for estimated-height shadows.
+- Extracted cached shadow computation to `src/shadeapp/shadow_field.py` and
+  candidate search/exposure evaluation to `src/shadeapp/routing.py`.
+- Removed global building-part subtraction. Track parent ownership, retain
+  elevated lower volumes, and flag ambiguous/orphan parts without cutting others.
+- Preserve part heights when applying facility-level ASU records.
+- Add **Place me / Place finish**, map taps and pin dragging. Custom graph routes
+  work offline using Python-generated five-minute edge sunlight fields.
+- Explicit 100 m snap bound, unverified connector offsets, same-point trips,
+  unsupported/disconnected endpoint errors, and a two-hour walk limit.
+- Clamp zoom and drag to the loaded map rectangle and clip outside geometry.
+- Rewrote roadmap/decisions to separate current behavior, planned work, and old
+  synthetic-demo settings.
 
-## Data coverage
+## Existing sources and coverage
 
-Map window: longitude -111.945 to -111.914; latitude 33.409 to 33.439.
-This is a neighborhood window, not the university boundary. Building downloads
-extend farther in all directions to include off-map shadow casters.
+Height enrichment is **paused at the owner's request**. No new height source was
+applied. Current ASU records, OSM tags, levels and fallback assumptions remain.
 
-- 12,479 building polygons/parts in the computational extract after processing.
-- 2,582 building polygons in the displayed window.
-- Visible heights: 42 tagged, 181 estimated from levels, 2,359 assumed at 9 m.
-- 10,480 connected pedestrian nodes and 11,300 links used by the prototype.
+- Visible neighborhood: lon -111.945 to -111.914, lat 33.409 to 33.439.
+- Context: 12,479 polygons/parts; 2,582 polygons visible.
+- Visible heights: 198 ASU records, 37 OSM tags, 117 levels estimates, 2,230 fallbacks.
+- Walking network: 10,511 connected nodes and 11,339 undirected links.
+- Custom edge fields: 133 five-minute states, 08:00–19:00 on October 20, 2026.
+- Visible parts: 3 with containment owners, 11 orphans retained without cuts.
 - OSM snapshot: 2026-10-21 03:46:05 UTC (October 20 in Phoenix).
 
-These are dataset counts, not a claim of complete real-world coverage. Most
-shadow predictions depend on unverified height assumptions.
+## Verification
 
-## Validation
+- 69 Python tests pass, including ownership, elevated/ground part preservation,
+  ambiguity, graph detours, sampling, arrival time, cache separation and prior
+  solar/geometry/source checks. Ruff lint and formatting pass.
+- Fourteen Node tests pass (including the DOM integration test), including actual exported-network custom trips, distant and
+  disconnected endpoints, zero trips, arrival-time fields and extreme viewport
+  positions/zoom levels.
+- A DOM-only integration check passes: initialization, custom start/finish taps,
+  pin dragging, route recomputation, time changes, fastest selection, and pan/zoom
+  limits, without script errors. This does not validate browser painting or touch.
+- Final embedded JavaScript syntax and payload dimensions checked.
 
-46 Python tests passed, including polygon concavity/courtyards, analytical shadow
-length, elevated buildings, projection scale/grid rotation, height units/access
-filters, and arrival-time exposure. Ruff lint/format checks passed.
+The browser URL policy blocks automatic access to this local file. No workaround
+was attempted; browser visual/mobile revalidation of these new controls remains
+for the owner. Earlier browser checks apply to the previous map UI only.
 
-Headless Chrome verified offline loading, real building footprints, changing
-shadows, the off-campus walk, fastest selection, zoom, estimate-display controls,
-and a 390 px mobile layout without overflow, JavaScript errors or network requests.
-Desktop/mobile screenshots were visually inspected.
+## Limits / next
 
-Environment note: Python 3.9.6 uses LibreSSL and pvlib import emits an urllib3
-compatibility warning. Core tests and builds pass; prefer a modern OpenSSL-backed
-Python for ongoing development.
+Custom routes use aggregated edge sunlight at midpoint arrival (not exact continuous
+integration). Candidate search is bounded, not globally optimal. Snapped connectors,
+entrances, crossings, barriers, stairs, temporary access and accessibility are not
+field-verified. No live GPS, timing uncertainty, reroute commitment, arbitrary date
+service, terrain, trees, weather or native app package yet.
 
-## Limits and next work
+Python 3.9.6 emits an existing urllib3/LibreSSL warning on pvlib import; tests/builds
+pass. Prefer a current OpenSSL-backed Python for future development.
 
-- Heights need enrichment/validation; use Overture or local lidar/GIS next.
-- No trees, terrain, weather, UV, or field-verified shadows.
-- Paths are mapped links, not verified entrances or safe turn-by-turn directions.
-  Crossing controls, barriers, accessibility and temporary access are not validated.
-- Candidate search uses departure-time midpoint edge costs; final scoring uses
-  3 m samples and arrival times with solar state rounded to 5 minutes (±2.5 min).
-  It is not globally optimal time-dependent routing.
-- Fixed study date October 20, 2026; half-hour departures from 08:00 through 17:00.
-- No live GPS, API service, arbitrary destination search, route commitment or
-  native app package yet. The standalone file is a prototype for the app.
+See ROADMAP.md, DECISIONS.md and CAMPUS_DATA.md for current scope and source rules.
 
-See CAMPUS_DATA.md for sources, bounds, refresh steps and data conventions.
+## Indoor passage research — October 21, 2026
+
+Saved four official ASU wayfinding PDFs and 216 public accessible-entrance records
+in the ignored research cache. Hayden Level One and Memorial Union are first
+candidates; Noble has a plan but no second public through-entrance established.
+The source inventory identifies 53 additional building codes with multiple
+accessible entrance records, without claiming corridor plans or route permission.
+All candidates remain disabled pending tracing, door access, schedules and floor
+registration. No routing code or existing app output changed in this research
+step. See INDOOR_SHORTCUTS.md for sources and the validation walk.
+
+## Creativity Commons connection enabled — October 21, 2026
+
+The owner confirms both ends of the marked covered segment connect to Palm Walk.
+Routing now splits the named Palm Walk edges at projected endpoint ties (maximum
+15 m), retaining existing connectivity. The full-length marked segment is
+routable; short exterior ties receive no roof-cover credit. Geometry is still
+approximate, based on the owner screenshot and building facade.
+
+The roof-covered centerline uses an explicit MVP shade proxy, not measured roof
+geometry: it receives zero direct-sun cost under the cover assumption. Low-angle
+sun entering the open sides, exact roof width/height, and column obstructions
+are not modeled. This does not guarantee full shade or accessibility.
+
+Final walkway verification: 66 Python tests and eight JavaScript/DOM tests pass,
+including an actual exported-network route along the confirmed covered segment.
+
+## MU and Hayden indoor routing enabled — October 21, 2026
+
+Owner-marked black corridor traces are now enabled: MU Main Level, including
+its marked entrance branches; Hayden Level One, Cady Mall west entrance to
+Orange Mall south entrance. Owner confirms step-free, bidirectional passage and
+all marked doors usable throughout reported hours. Hayden is confirmed daily
+07:00–midnight; MU Mon–Fri 06:30–22:00, Sat 08:00–22:00, Sun 10:00–22:00.
+This supersedes earlier statements that both candidates remain disabled.
+Noble, SDFC and Hayden concourse shortcuts remain excluded.
+
+`data/indoor_passages.json` preserves pixel traces, controls, access evidence and
+weekly schedules. `indoor_passages.py` registers coordinates in local metres and
+splits nearby exterior edges for each confirmed door; ties crossing the building
+interior are rejected. MU uses ASU entrance records 249/248/247 as three controls;
+the unmarked southwest doorway is only a registration control, not another added
+route. Hayden uses entrance records 222/224 and an approximate OSM northwest
+facade control. Doors snap to the mapped facade within a 12 m registration limit;
+exterior ties are bounded at 25 m. Geometry and distances are approximate, not
+surveyed; floor plans and simplified OSM footprints differ.
+
+Indoor centerlines receive zero direct-sun exposure. Exterior ties are evaluated
+separately. Each door crossing adds an explicitly assumed 10 seconds; actual door,
+queue and crowd delays are unknown. Route cards label trips via MU or Hayden;
+brown lines show available corridor geometry. Full edge traversal must fit within
+reported opening hours; custom search checks predicted arrival and exit times,
+retaining outdoor alternatives. It still uses bounded candidates with one label
+per node, not a globally optimal time-dependent solver. Python presets are for
+the existing Tuesday 08:00–17:00 study, entirely within both opening schedules;
+no arbitrary-day preset service is claimed. The offline solar date/time window
+is unchanged. Holiday/event closures and live door status are unavailable.
+
+Current verification: 69 Python tests and 14 JavaScript/DOM tests pass,
+including real exported MU/Hayden routes, indoor cover, schedule boundaries,
+arrival-time closure exclusion, doorway delay and outdoor fallback. Ruff and
+formatting checks pass. Browser painting remains unverified under the existing
+local-file URL policy restriction.
+
+## Live routing core — October 24, 2026
+
+Custom route search now evaluates each edge at its predicted traversal time. A
+bounded time-expanded search retains distinct 30-second arrival windows at the
+same node instead of collapsing all futures into one label. `LiveRouteSession`
+accepts observed position/time updates, unplanned stops and expiring edge events,
+then recalculates the remaining route. Supported event effects are added delay,
+temporary closure and discomfort cost. Route duration remains separate from
+preference cost.
+
+This replaces the custom router's departure-state edge pricing. Preset Python
+routes still use the earlier bounded candidate generator followed by arrival-time
+scoring. Live GPS, speed estimation, automatic red-light sensing, observation
+storage/sharing, confidence decay and reroute hysteresis are not implemented.

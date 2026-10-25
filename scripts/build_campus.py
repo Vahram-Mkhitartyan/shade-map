@@ -1,28 +1,33 @@
 """Build an offline ASU/Tempe map from a cached, attributed OSM extract."""
 
+import base64
 import json
 from collections import Counter
-from datetime import datetime, timedelta
-from functools import lru_cache
-from math import ceil, dist
+from datetime import datetime
+from math import dist
 from pathlib import Path
-from typing import Dict, List, Tuple
 from zoneinfo import ZoneInfo
 
 import networkx as nx
 import numpy as np
-from shapely import points as make_points
 from shapely.geometry import LineString, Point, box
 from shapely.geometry.base import BaseGeometry
-from shapely.strtree import STRtree
 
+from shadeapp.asu_heights import apply_asu_heights
+from shadeapp.covered_walkways import connect_walkways, covered_segments
 from shadeapp.geodata import (
     load_buildings,
-    solar_direction_to_grid,
     to_local,
     walking_graph,
 )
-from shadeapp.solar import Sun
+from shadeapp.indoor_passages import connect_passages, register_trace
+from shadeapp.routing import (
+    candidate_paths,
+    edge_samples,
+    edge_sunlight,
+    score_route,
+)
+from shadeapp.shadow_field import ShadowField
 
 ROOT = Path(__file__).resolve().parents[1]
 DAY = datetime(2026, 10, 20, tzinfo=ZoneInfo("America/Phoenix"))
@@ -54,35 +59,50 @@ def svg_path(geometry: BaseGeometry) -> str:
     return "".join(paths)
 
 
-def sample_route(
-    graph: nx.Graph, nodes: List[int]
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return evenly weighted midpoint samples, up to 3 m apart."""
-    samples, distances, weights = [], [], []
-    distance_so_far = 0.0
-    for first, second in zip(nodes, nodes[1:]):
-        start = graph.nodes[first]["point"]
-        end = graph.nodes[second]["point"]
-        length = dist(start, end)
-        count = max(1, ceil(length / 3))
-        for index in range(count):
-            fraction = (index + 0.5) / count
-            samples.append(
-                (
-                    start[0] + (end[0] - start[0]) * fraction,
-                    start[1] + (end[1] - start[1]) * fraction,
-                )
-            )
-            distances.append(distance_so_far + length * fraction)
-            weights.append(length / count / SPEED)
-        distance_so_far += length
-    return np.array(samples), np.array(distances), np.array(weights)
+def render_payload(payload: dict) -> None:
+    """Package a cached model with the current offline interface sources."""
+    payload["network"]["routing_bin_seconds"] = 30
+    annotations = json.loads(
+        (ROOT / "data/covered_walkways.geojson").read_text()
+    )
+    payload["covered_walkways"] = [
+        {
+            "id": feature["id"],
+            "points": [
+                list(to_local(*point))
+                for point in feature["geometry"]["coordinates"]
+            ],
+            **feature["properties"],
+        }
+        for feature in annotations["features"]
+    ]
+    template = (ROOT / "demo/campus-template.html").read_text()
+    destination = ROOT / "demo/campus.html"
+    # Escape markup-significant characters in untrusted OSM labels.
+    embedded = json.dumps(payload, separators=(",", ":")).replace(
+        "<", "\\u003c"
+    )
+    template = template.replace(
+        "__ROUTING_SCRIPT__", (ROOT / "demo/offline-routing.js").read_text()
+    ).replace(
+        "__VIEWPORT_SCRIPT__", (ROOT / "demo/map-viewport.js").read_text()
+    )
+    (ROOT / ".cache/campus-payload.json").write_text(embedded)
+    destination.write_text(template.replace("__CAMPUS_DATA__", embedded))
+    print(f"Rendered {destination}: {destination.stat().st_size:,} bytes")
 
 
 def build() -> None:
     """Build a reproducible map with route candidates and shade frames."""
     source = json.loads((ROOT / ".cache/campus-osm.json").read_text())
     buildings, skipped = load_buildings(source["elements"])
+    asu_source = json.loads((ROOT / ".cache/asu-facilities.json").read_text())
+    buildings, asu_matches = apply_asu_heights(
+        buildings, asu_source["features"]
+    )
+    print(
+        f"Matched {asu_matches} OSM polygons to ASU height records", flush=True
+    )
     graph = walking_graph(source["elements"])
     largest = max(nx.connected_components(graph), key=len)
     graph = graph.subgraph(largest).copy()
@@ -94,6 +114,29 @@ def build() -> None:
         ]
     )
     graph = graph.subgraph(max(nx.connected_components(graph), key=len)).copy()
+    annotations = json.loads(
+        (ROOT / "data/covered_walkways.geojson").read_text()
+    )
+    graph = connect_walkways(graph, annotations["features"])
+    passages = [
+        register_trace(item)
+        for item in json.loads(
+            (ROOT / "data/indoor_passages.json").read_text()
+        )
+    ]
+    for passage in passages:
+        mu = next(
+            item for item in buildings if item.name == passage["building"]
+        )
+        passage["footprint"] = mu.model.footprint
+        for key in passage["doors"]:
+            point = Point(passage["points"][key])
+            boundary = mu.model.footprint.boundary
+            anchor = boundary.interpolate(boundary.project(point))
+            if point.distance(anchor) > 12:
+                raise ValueError("MU door registration exceeds 12 m")
+            passage["points"][key] = (anchor.x, anchor.y)
+    graph = connect_passages(graph, passages)
     print(
         f"Using {len(buildings)} buildings and {len(graph)} connected nodes",
         flush=True,
@@ -137,104 +180,28 @@ def build() -> None:
             }
         )
 
-    bounds = np.array([item.model.footprint.bounds for item in buildings])
-    heights = np.array([item.model.height_m for item in buildings])
-    edges = list(graph.edges(data=True))
-    midpoints = make_points(
-        [
-            (
-                (graph.nodes[a]["point"][0] + graph.nodes[b]["point"][0]) / 2,
-                (graph.nodes[a]["point"][1] + graph.nodes[b]["point"][1]) / 2,
-            )
-            for a, b, _ in edges
-        ]
+    field = ShadowField(
+        buildings, DAY, VIEW, covered_paths=covered_segments(graph)
     )
-
-    @lru_cache(maxsize=6)
-    def shadow_state(
-        minute: int,
-    ) -> Tuple[Sun, List[int], List[BaseGeometry], STRtree]:
-        """Calculate prism shadows from the available building extract."""
-        sun = Sun.at(33.4242, -111.9281, DAY + timedelta(minutes=minute))
-        if sun.elevation_deg <= 0:
-            return sun, [], [], STRtree([])
-        grid_direction = solar_direction_to_grid(sun.direction)
-        east, north, up = grid_direction
-        dx, dy = -heights * east / up, -heights * north / up
-        relevant = np.flatnonzero(
-            (np.minimum(bounds[:, 0], bounds[:, 0] + dx) <= EAST)
-            & (np.maximum(bounds[:, 2], bounds[:, 2] + dx) >= WEST)
-            & (np.minimum(bounds[:, 1], bounds[:, 1] + dy) <= NORTH)
-            & (np.maximum(bounds[:, 3], bounds[:, 3] + dy) >= SOUTH)
-        )
-        indices, shadows = [], []
-        for index in relevant:
-            geometry = buildings[index].model.shadow(grid_direction)
-            if geometry.intersects(VIEW):
-                indices.append(int(index))
-                shadows.append(geometry)
-        return sun, indices, shadows, STRtree(shadows)
-
-    def blocked(samples: np.ndarray, minute: int) -> np.ndarray:
-        sun, _, _, tree = shadow_state(minute)
-        result = np.zeros(len(samples), dtype=bool)
-        if sun.elevation_deg <= 0:
-            result[:] = True
-        elif len(samples):
-            pairs = tree.query(samples, predicate="intersects")
-            if pairs.size:
-                result[pairs[0]] = True
-        return result
-
-    def score(nodes: List[int], departure_minute: int) -> Dict[str, object]:
-        samples, distances, seconds = sample_route(graph, nodes)
-        # Advance arrival time along the walk using five-minute solar bins.
-        arrival_bins = (
-            np.rint((departure_minute + distances / SPEED / 60) / 5) * 5
-        ).astype(int)
-        shaded = np.zeros(len(samples), dtype=bool)
-        for minute in np.unique(arrival_bins):
-            indices = np.flatnonzero(arrival_bins == minute)
-            shaded[indices] = blocked(
-                make_points(samples[indices]), int(minute)
-            )
-        duration = float(seconds.sum())
-        sunny = float(seconds[~shaded].sum())
-        return {
-            "duration": round(duration, 1),
-            "sunny": round(sunny, 1),
-            "distance": round(duration * SPEED),
-            "shade": round(100 * (1 - sunny / duration)),
-        }
-
+    edges = list(graph.edges(data=True))
+    samples, owners = edge_samples(graph, edges)
     frames = []
     # Half-hour departures for the fixed study date.
     for minute in range(480, 1021, 30):
-        sun, indices, shadows, _ = shadow_state(minute)
-        shade_at_edges = blocked(midpoints, minute)
-        for (_, _, attributes), shade in zip(edges, shade_at_edges):
-            attributes["sunny_length"] = 0 if shade else attributes["length"]
+        state = field.state(minute)
+        sun = state.sun
+        indices, shadows = state.building_indices, state.polygons
+        sun_fractions = edge_sunlight(
+            field, minute, samples, owners, len(edges)
+        )
+        for (_, _, attributes), fraction in zip(edges, sun_fractions):
+            attributes["sunny_length"] = fraction * attributes["length"]
         route_sets = []
         for scenario in scenarios:
-            candidates = [scenario["shortest"]]
-            for preference in (1, 3, 8):
-                candidate = nx.shortest_path(
-                    graph,
-                    *scenario["endpoints"],
-                    weight=lambda a, b, attributes: (
-                        attributes["length"]
-                        + preference * attributes["sunny_length"]
-                    ),
-                )
-                if (
-                    candidate not in candidates
-                    and nx.path_weight(graph, candidate, "length")
-                    <= scenario["shortest_length"] * 1.35
-                ):
-                    candidates.append(candidate)
+            candidates = candidate_paths(graph, *scenario["endpoints"])
             routes = []
             for index, candidate in enumerate(candidates):
-                metrics = score(candidate, minute)
+                metrics = score_route(graph, candidate, minute, field)
                 coordinates = [
                     graph.nodes[node]["point"] for node in candidate
                 ]
@@ -289,8 +256,60 @@ def build() -> None:
                 "name": element["tags"].get("name", ""),
             }
         )
+    node_ids = list(graph)
+    node_indices = {node: index for index, node in enumerate(node_ids)}
+    edge_table = [
+        [
+            node_indices[first],
+            node_indices[second],
+            round(attributes["length"], 3),
+            attributes.get("delay", 0),
+            attributes.get("schedule"),
+            attributes.get("passage"),
+        ]
+        for first, second, attributes in edges
+    ]
+    sunlight_table = []
+    for minute in range(480, 1141, 5):
+        fractions = edge_sunlight(field, minute, samples, owners, len(edges))
+        sunlight_table.append(
+            base64.b64encode(
+                np.rint(fractions * 255).astype(np.uint8).tobytes()
+            ).decode("ascii")
+        )
+        if minute % 30 == 0:
+            print(
+                f"Custom endpoint field: {minute // 60:02}:{minute % 60:02}",
+                flush=True,
+            )
     payload = {
         "bounds": [WEST, SOUTH, EAST, NORTH],
+        "network": {
+            "weekday": DAY.weekday(),
+            "points": [
+                [round(value, 2) for value in graph.nodes[node]["point"]]
+                for node in node_ids
+            ],
+            "edges": edge_table,
+            "sunlight": sunlight_table,
+            "first_minute": 480,
+            "bin_minutes": 5,
+            "routing_bin_seconds": 30,
+            "max_walk_seconds": 7200,
+        },
+        "indoor_passages": [
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "source": item["source"],
+                "geometry_note": item["geometry_note"],
+                "lines": [
+                    [item["points"][a], item["points"][b]]
+                    for a, b in item["links"]
+                ],
+            }
+            for item in passages
+        ],
         "buildings": [
             {
                 "path": svg_path(item.model.footprint.simplify(0.4)),
@@ -298,15 +317,24 @@ def build() -> None:
                 "height": round(item.model.height_m, 1),
                 "source": item.height_source,
                 "osm_id": item.osm_id,
+                "height_reference": item.height_reference,
+                "is_part": item.is_part,
+                "parent_id": item.parent_id,
+                "ownership": item.ownership,
             }
             for item in visible
         ],
         "roads": road_paths,
         "scenarios": [
             {
-                key: value
-                for key, value in scenario.items()
-                if key in {"from", "to", "offsets"}
+                "nodes": [
+                    node_indices[node] for node in scenario["endpoints"]
+                ],
+                **{
+                    key: value
+                    for key, value in scenario.items()
+                    if key in {"from", "to", "offsets"}
+                },
             }
             for scenario in scenarios
         ],
@@ -315,13 +343,7 @@ def build() -> None:
         "skipped": skipped,
         "snapshot": source["osm3s"]["timestamp_osm_base"],
     }
-    template = (ROOT / "demo/campus-template.html").read_text()
-    destination = ROOT / "demo/campus.html"
-    # Escape markup-significant characters in untrusted OSM labels.
-    embedded = json.dumps(payload, separators=(",", ":")).replace(
-        "<", "\\u003c"
-    )
-    destination.write_text(template.replace("__CAMPUS_DATA__", embedded))
+    render_payload(payload)
     (ROOT / ".cache/campus-summary.json").write_text(
         json.dumps(
             {
@@ -335,8 +357,21 @@ def build() -> None:
             indent=2,
         )
     )
-    print(f"Built {destination}: {destination.stat().st_size:,} bytes")
 
 
 if __name__ == "__main__":
-    build()
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--render-only",
+        action="store_true",
+        help="Repackage cached fields without recalculation",
+    )
+    arguments = parser.parse_args()
+    if arguments.render_only:
+        render_payload(
+            json.loads((ROOT / ".cache/campus-payload.json").read_text())
+        )
+    else:
+        build()
