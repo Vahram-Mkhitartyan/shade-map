@@ -1,16 +1,16 @@
 # ASU indoor-shortcut source survey
 
-Reviewed October 21, 2026. Public sources only. This packet identifies potential
+Reviewed October 28, 2026. Public sources only. This packet identifies potential
 passages; it does not enable any indoor route in shade app or claim time savings.
 
 ## Best starting candidates
 
-| Priority | Building / level | Evidence | What remains |
-| --- | --- | --- | --- |
-| 1 | Hayden Library, Level One | Official plan labels entrances at Cady Mall and Orange Mall. Public GIS has west- and south-side entrance records. | Trace a lobby route avoiding collection/office rooms; verify both doors and common opening times. |
-| 2 | Memorial Union, Main Level | Public 2025 four-floor map; GIS identifies north, southwest and southeast accessible entrances. | Trace north-to-southwest and north-to-southeast public corridors; check ramp/stair alternatives and door availability. |
-| Excluded | Noble Library, Level One | Owner reports no accessible second entrance. | Exclude accessible through-building shortcuts; not a claim that no other doors exist. |
-| Hold | Student Pavilion | Public hours and one accessible entrance record. | No suitable floor plan or second public entrance established in this survey. |
+| Priority | Building / level           | Evidence                                                                                                           | What remains                                                                                                           |
+| -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| 1        | Hayden Library, Level One  | Official plan labels entrances at Cady Mall and Orange Mall. Public GIS has west- and south-side entrance records. | Trace a lobby route avoiding collection/office rooms; verify both doors and common opening times.                      |
+| 2        | Memorial Union, Main Level | Public 2025 four-floor map; GIS identifies north, southwest and southeast accessible entrances.                    | Trace north-to-southwest and north-to-southeast public corridors; check ramp/stair alternatives and door availability. |
+| Excluded | Noble Library, Level One   | Owner reports no accessible second entrance.                                                                       | Exclude accessible through-building shortcuts; not a claim that no other doors exist.                                  |
+| Hold     | Student Pavilion           | Public hours and one accessible entrance record.                                                                   | No suitable floor plan or second public entrance established in this survey.                                           |
 
 These priorities are research judgments, not ASU endorsements. Multiple doorway
 symbols or entrance points do not prove permission or a continuous public passage.
@@ -45,13 +45,13 @@ longitude/latitude, not local metres. Endpoint:
 
 https://gisprodportal.asu.edu/server/rest/services/CampusLayers/Accessible_Entrances/FeatureServer/0
 
-| Building | Record IDs | Source descriptions |
-| --- | --- | --- |
-| Hayden (LIB) | 222, 224 | West side; south side (Level One candidates) |
-| Hayden (LIB) | 223 | West-side elevator access to concourse; keep separate from Level One |
-| Memorial Union (MU) | 247, 248, 249 | Southeast corner; southwest corner; north side |
-| Noble (NOBLE) | 275 | Main entrance; ramp noted west of stairs |
-| Student Pavilion (STPV) | 345 | Southwest corner |
+| Building                | Record IDs    | Source descriptions                                                  |
+| ----------------------- | ------------- | -------------------------------------------------------------------- |
+| Hayden (LIB)            | 222, 224      | West side; south side (Level One candidates)                         |
+| Hayden (LIB)            | 223           | West-side elevator access to concourse; keep separate from Level One |
+| Memorial Union (MU)     | 247, 248, 249 | Southeast corner; southwest corner; north side                       |
+| Noble (NOBLE)           | 275           | Main entrance; ramp noted west of stairs                             |
+| Student Pavilion (STPV) | 345           | Southwest corner                                                     |
 
 The layer contains accessibility-related attributes such as button, width32,
 mainentrance and accessibleentrance. These describe source records, not a fresh
@@ -60,8 +60,38 @@ entrance inventory, not a complete inventory of all doors or emergency exits.
 
 The inventory also lists 53 other building codes with multiple mapped accessible
 entrances. Wexler (5), Nelson Fine Arts Center (4), Armstrong (4), Student Services
-(4), and Business Administration (3) are follow-up leads; their corridor plans
-were not established in this survey. More doors do not imply a better shortcut.
+(4), and Business Administration (3) are follow-up leads. More doors do not imply
+a better shortcut.
+
+## Campus-wide public plan sweep — October 28, 2026
+
+ASURITE authentication succeeded for the ASU Virtual Print Vault, but the account
+does not have the separate facilities permission required to open drawings. The
+vault returned `NoPermission`. Do not bypass that boundary. ASU's official campus
+and building information page says students and non-consultants should use the
+plans-request form with a sponsoring faculty or staff member; vault accessibility
+permission is handled separately by University Facilities Records Management.
+
+The public-source sweep produced three new results:
+
+| Building               | Public evidence                                                                                                                                         | Routing decision                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Music Building         | The official School of Music FAQ links a public MappedIn interactive building map. Owner inspected it on October 28 and found only one usable entrance. | Exclude from through-building routing. Two GIS entrance records do not establish two usable public doors.        |
+| Desert Financial Arena | An official 2022 facility map shows the circular concourse and north, east, south and west exits.                                                       | Treat as a partial venue plan. Keep disabled because event access and ongoing renovation can change circulation. |
+| Payne Hall             | A current official 12-page emergency plan references floor plans but does not include them. Visual review found only an exterior assembly-area map.     | The document cannot support an indoor corridor trace. Request the ground-floor sheet or collect an owner trace.  |
+
+Sources:
+
+- [ASU campus and building information](https://cfo.asu.edu/campus-bldg-information)
+- [Official Music Building map link](https://musicdancetheatre.asu.edu/admission/frequently-asked-questions)
+- [Desert Financial Arena facility map](https://graduation.asu.edu/sites/g/files/litvpz3431/files/2022_desert_financial_arena_map_updated_04.19.221.pdf)
+- [Payne Hall emergency and evacuation plan](https://employee.cisa.asu.edu/sites/g/files/litvpz1091/files/2025-10/Payne_Hall_Emergency_and_Evacuation_Plan_2024%20-%20Updated.pdf)
+
+Official ASU searches also surfaced site, parking, gate, virtual-tour and building
+history pages. These locate buildings but do not expose traceable indoor corridors.
+The remaining candidates therefore stay disabled and retain
+`not_established_in_this_research` until a public plan, approved vault/requested
+drawing, or an owner-verified trace supplies the missing geometry.
 
 ## Hours and permission evidence
 

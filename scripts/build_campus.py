@@ -15,11 +15,7 @@ from shapely.geometry.base import BaseGeometry
 
 from shadeapp.asu_heights import apply_asu_heights
 from shadeapp.covered_walkways import connect_walkways, covered_segments
-from shadeapp.geodata import (
-    load_buildings,
-    to_local,
-    walking_graph,
-)
+from shadeapp.geodata import load_buildings, to_local, walking_graph
 from shadeapp.indoor_passages import connect_passages, register_trace
 from shadeapp.routing import (
     candidate_paths,

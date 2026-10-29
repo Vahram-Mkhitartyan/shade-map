@@ -229,8 +229,24 @@ class OfflineRouter {
     };
   }
 
-  routes(startPoint, finishPoint, departure, conditions = []) {
-    const start = this.nearestNode(startPoint);
+  routes(
+    startPoint,
+    finishPoint,
+    departure,
+    conditions = [],
+    startNode = null,
+  ) {
+    // A live walker is already committed to a graph edge. Its next route node
+    // is a safer search anchor than an unrelated path that happens to be closer.
+    const start = Number.isInteger(startNode)
+      ? {
+          node: startNode,
+          distance: Math.hypot(
+            startPoint[0] - this.network.points[startNode][0],
+            startPoint[1] - this.network.points[startNode][1],
+          ),
+        }
+      : this.nearestNode(startPoint);
     const finish = this.nearestNode(finishPoint);
     const shortest = this.shortestPath(
       start.node,
@@ -268,9 +284,20 @@ class OfflineRouter {
 }
 
 class LiveRouteSession {
-  constructor(router, { replanSeconds = 30 } = {}) {
+  constructor(
+    router,
+    {
+      replanSeconds = 30,
+      preference = "shade",
+      shadeWeight = 3,
+      minimumSwitchGainSeconds = 20,
+    } = {},
+  ) {
     this.router = router;
     this.replanSeconds = replanSeconds;
+    this.preference = preference;
+    this.shadeWeight = shadeWeight;
+    this.minimumSwitchGainSeconds = minimumSwitchGainSeconds;
     this.conditions = [];
     this.events = [];
     this.position = null;
@@ -279,23 +306,31 @@ class LiveRouteSession {
     this.lastPlanMinute = null;
     this.lastNode = null;
     this.plan = null;
+    this.selectedRoute = null;
+    this.routeAnchorNode = null;
   }
 
   begin(position, destination, minute) {
     this.position = position;
     this.destination = destination;
     this.observedMinute = minute;
+    this.routeAnchorNode = this.router.nearestNode(position).node;
     return this.replan("started");
   }
 
-  updatePosition(position, minute) {
+  updatePosition(position, minute, routeAnchorNode = null) {
     if (this.destination == null)
       throw new Error("Live route has not started.");
     if (minute < this.observedMinute)
       throw new Error("Observed time cannot move backwards.");
     this.position = position;
     this.observedMinute = minute;
-    const node = this.router.nearestNode(position).node;
+    // Simulators and future navigation clients can preserve the committed
+    // segment. Callers without that context still receive nearest-node behavior.
+    const node = Number.isInteger(routeAnchorNode)
+      ? routeAnchorNode
+      : this.router.nearestNode(position).node;
+    this.routeAnchorNode = node;
     if (
       node !== this.lastNode ||
       minute - this.lastPlanMinute >= this.replanSeconds / 60
@@ -320,9 +355,53 @@ class LiveRouteSession {
   reportCondition(condition) {
     if (!Number.isInteger(condition.edge))
       throw new Error("A condition needs a graph edge index.");
+    const savedConditions = [...this.conditions];
     this.conditions.push({ ...condition });
-    this.events.push({ ...condition, minute: this.observedMinute });
-    return this.replan(condition.reason || condition.kind);
+    try {
+      const plan = this.replan(condition.reason || condition.kind);
+      this.events.push({ ...condition, minute: this.observedMinute });
+      return plan;
+    } catch (error) {
+      this.conditions = savedConditions;
+      throw error;
+    }
+  }
+
+  setPreference(preference) {
+    if (!new Set(["fastest", "shade"]).has(preference))
+      throw new Error("Preference must be fastest or shade.");
+    this.preference = preference;
+    if (this.destination == null) return this.plan;
+    return this.replan("preference changed");
+  }
+
+  routeCost(route) {
+    if (this.preference === "fastest") return route.duration;
+    return route.duration + this.shadeWeight * route.sunny;
+  }
+
+  routeKey(route) {
+    return route ? `${route.nodes.join(",")}|${route.edges.join(",")}` : "";
+  }
+
+  remainingRoute(node) {
+    if (!this.selectedRoute) return null;
+    const index = this.selectedRoute.nodes.lastIndexOf(node);
+    if (index < 0) return null;
+    try {
+      const remaining = this.router.score(
+        {
+          nodes: this.selectedRoute.nodes.slice(index),
+          edges: this.selectedRoute.edges.slice(index),
+        },
+        this.observedMinute,
+        this.conditions,
+      );
+      remaining.name = this.selectedRoute.name;
+      return remaining;
+    } catch {
+      return null;
+    }
   }
 
   replan(reason) {
@@ -332,18 +411,241 @@ class LiveRouteSession {
         condition.expiresAt > this.observedMinute,
     );
     this.conditions = active;
+    const currentNode = Number.isInteger(this.routeAnchorNode)
+      ? this.routeAnchorNode
+      : this.router.nearestNode(this.position).node;
     const result = this.router.routes(
       this.position,
       this.destination,
       this.observedMinute,
       active,
+      currentNode,
     );
-    this.lastNode = this.router.nearestNode(this.position).node;
+    const current = this.remainingRoute(currentNode);
+    const best = result.candidates
+      .map((route, index) => ({ route, index, cost: this.routeCost(route) }))
+      .sort((left, right) => left.cost - right.cost)[0];
+    if (!best) throw new Error("No route candidates are available.");
+
+    const hasPreviousRoute = this.selectedRoute != null;
+    let selected = best.route;
+    let routeChanged = !hasPreviousRoute || current == null;
+    let switchGainSeconds = null;
+    let decision = hasPreviousRoute
+      ? "current route unavailable"
+      : "initial route";
+    if (current) {
+      const currentCost = this.routeCost(current);
+      switchGainSeconds = currentCost - best.cost;
+      const sameRoute = this.routeKey(current) === this.routeKey(best.route);
+      if (sameRoute) {
+        selected = best.route;
+        routeChanged = false;
+        decision = "route remains best";
+      } else if (switchGainSeconds < this.minimumSwitchGainSeconds) {
+        selected = current;
+        routeChanged = false;
+        decision = `kept current route; gain below ${this.minimumSwitchGainSeconds} s`;
+        if (
+          !result.candidates.some(
+            (candidate) => this.routeKey(candidate) === this.routeKey(current),
+          )
+        )
+          result.candidates.push(current);
+      } else {
+        routeChanged = true;
+        decision = `switched for ${Math.round(switchGainSeconds)} s of weighted gain`;
+      }
+    }
+
+    this.selectedRoute = selected;
+    this.lastNode = currentNode;
     this.lastPlanMinute = this.observedMinute;
-    this.plan = { ...result, reason, calculatedAt: this.observedMinute };
+    this.plan = {
+      ...result,
+      reason,
+      calculatedAt: this.observedMinute,
+      selectedRoute: selected,
+      routeChanged,
+      switchGainSeconds,
+      decision,
+    };
     return this.plan;
   }
 }
 
+class LiveWalkSimulator {
+  constructor(session, { stepSeconds = 10 } = {}) {
+    this.session = session;
+    this.stepSeconds = stepSeconds;
+    this.position = null;
+    this.destination = null;
+    this.routePoints = [];
+    this.routePointNodes = [];
+    this.routeDuration = 0;
+    this.routeElapsed = 0;
+    this.routeSegmentIndex = 0;
+    this.started = false;
+    this.finished = false;
+  }
+
+  begin(position, destination, minute) {
+    this.position = [...position];
+    this.destination = [...destination];
+    this.started = true;
+    this.finished = false;
+    const plan = this.session.begin(position, destination, minute);
+    this.usePlan(plan);
+    return this.snapshot(plan);
+  }
+
+  usePlan(plan) {
+    const route = plan.selectedRoute;
+    const points = route.points.map((point) => [...point]);
+    const pointNodes = [...route.nodes];
+    if (
+      !points.length ||
+      Math.hypot(
+        points[0][0] - this.position[0],
+        points[0][1] - this.position[1],
+      ) > 0.01
+    ) {
+      points.unshift([...this.position]);
+      pointNodes.unshift(null);
+    }
+    this.routePoints = points;
+    this.routePointNodes = pointNodes;
+    this.routeDuration = route.duration;
+    this.routeElapsed = 0;
+    this.routeSegmentIndex = 0;
+  }
+
+  progressAt(fraction) {
+    if (!this.routePoints.length)
+      return {
+        position: [...this.position],
+        routeAnchorNode: this.session.routeAnchorNode,
+        segmentIndex: 0,
+      };
+    if (this.routePoints.length === 1)
+      return {
+        position: [...this.routePoints[0]],
+        routeAnchorNode: this.routePointNodes[0],
+        segmentIndex: 0,
+      };
+    const segments = [];
+    let total = 0;
+    for (let index = 1; index < this.routePoints.length; index++) {
+      const start = this.routePoints[index - 1];
+      const finish = this.routePoints[index];
+      const length = Math.hypot(finish[0] - start[0], finish[1] - start[1]);
+      segments.push({
+        start,
+        finish,
+        length,
+        routeAnchorNode: this.routePointNodes[index],
+      });
+      total += length;
+    }
+    let remaining = Math.max(0, Math.min(1, fraction)) * total;
+    for (const [segmentIndex, segment] of segments.entries()) {
+      if (remaining <= segment.length) {
+        const amount = segment.length ? remaining / segment.length : 0;
+        return {
+          position: [
+            segment.start[0] + (segment.finish[0] - segment.start[0]) * amount,
+            segment.start[1] + (segment.finish[1] - segment.start[1]) * amount,
+          ],
+          routeAnchorNode: segment.routeAnchorNode,
+          segmentIndex,
+        };
+      }
+      remaining -= segment.length;
+    }
+    return {
+      position: [...this.routePoints.at(-1)],
+      routeAnchorNode: this.routePointNodes.at(-1),
+      segmentIndex: Math.max(0, segments.length - 1),
+    };
+  }
+
+  remainingPoints() {
+    if (!this.position) return [];
+    const future = this.routePoints.slice(this.routeSegmentIndex + 1);
+    if (
+      future.length &&
+      Math.hypot(
+        future[0][0] - this.position[0],
+        future[0][1] - this.position[1],
+      ) < 0.01
+    )
+      future.shift();
+    return [[...this.position], ...future.map((point) => [...point])];
+  }
+
+  advance(seconds = this.stepSeconds) {
+    if (!this.started) throw new Error("Simulation has not started.");
+    if (this.finished) return this.snapshot(this.session.plan);
+    if (!(seconds > 0)) throw new Error("Simulation step must be positive.");
+    const previousPlan = this.session.plan;
+    this.routeElapsed = Math.min(
+      this.routeDuration,
+      this.routeElapsed + seconds,
+    );
+    const fraction = this.routeDuration
+      ? this.routeElapsed / this.routeDuration
+      : 1;
+    const progress = this.progressAt(fraction);
+    this.position = progress.position;
+    this.routeSegmentIndex = progress.segmentIndex;
+    const minute = this.session.observedMinute + seconds / 60;
+    const plan = this.session.updatePosition(
+      this.position,
+      minute,
+      progress.routeAnchorNode,
+    );
+    if (fraction >= 1) {
+      this.position = [...this.destination];
+      this.finished = true;
+    } else if (plan !== previousPlan && plan.routeChanged) {
+      this.usePlan(plan);
+    }
+    return this.snapshot(plan);
+  }
+
+  addDelay(seconds, reason) {
+    if (!this.started) throw new Error("Simulation has not started.");
+    const plan = this.session.addDelay(seconds, reason);
+    this.usePlan(plan);
+    return this.snapshot(plan);
+  }
+
+  reportCondition(condition) {
+    if (!this.started) throw new Error("Simulation has not started.");
+    const plan = this.session.reportCondition(condition);
+    this.usePlan(plan);
+    return this.snapshot(plan);
+  }
+
+  nextEdge() {
+    return this.session.plan?.selectedRoute?.edges?.[0] ?? null;
+  }
+
+  snapshot(plan) {
+    return {
+      position: this.position ? [...this.position] : null,
+      minute: this.session.observedMinute,
+      plan,
+      finished: this.finished,
+      remainingPoints: this.remainingPoints(),
+    };
+  }
+}
+
 if (typeof module !== "undefined")
-  module.exports = { OfflineRouter, LiveRouteSession, MinHeap };
+  module.exports = {
+    OfflineRouter,
+    LiveRouteSession,
+    LiveWalkSimulator,
+    MinHeap,
+  };

@@ -5,6 +5,7 @@ const test = require("node:test");
 const {
   OfflineRouter,
   LiveRouteSession,
+  LiveWalkSimulator,
   MinHeap,
 } = require("../demo/offline-routing.js");
 const { constrainView } = require("../demo/map-viewport.js");
@@ -256,6 +257,136 @@ test("live discomfort changes preference without changing travel time", () => {
   assert.deepEqual(changed.candidates[0].nodes, [0, 2, 1]);
   assert.equal(changed.candidates[0].duration, 120 / 1.4);
 });
+
+test("live route stability ignores small gains and accepts meaningful ones", () => {
+  let phase = 0;
+  const route = (name, edge, duration) => ({
+    name,
+    nodes: [0, 1],
+    edges: [edge],
+    points: [
+      [0, 0],
+      [1, 0],
+    ],
+    duration,
+    sunny: 0,
+    distance: 1,
+    shade: 100,
+    passages: [],
+  });
+  const current = route("Current", 10, 100);
+  const smallGain = route("Small gain", 11, 90);
+  const largeGain = route("Large gain", 12, 70);
+  const fakeRouter = {
+    nearestNode() {
+      return { node: 0, distance: 0 };
+    },
+    routes() {
+      return {
+        candidates: [
+          phase === 0 ? current : phase === 1 ? smallGain : largeGain,
+        ],
+        offsets: [0, 0],
+      };
+    },
+    score(path) {
+      return { ...current, nodes: path.nodes, edges: path.edges };
+    },
+  };
+  const session = new LiveRouteSession(fakeRouter, {
+    preference: "fastest",
+    minimumSwitchGainSeconds: 20,
+  });
+  session.begin([0, 0], [1, 0], 480);
+  phase = 1;
+  let plan = session.replan("small improvement");
+  assert.equal(plan.selectedRoute.name, "Current");
+  assert.equal(plan.routeChanged, false);
+  assert.match(plan.decision, /below 20 s/);
+  phase = 2;
+  plan = session.replan("large improvement");
+  assert.equal(plan.selectedRoute.name, "Large gain");
+  assert.equal(plan.routeChanged, true);
+  assert.equal(plan.switchGainSeconds, 30);
+});
+
+test("live route switches immediately when the current path is blocked", () => {
+  const session = new LiveRouteSession(fixture(), { preference: "fastest" });
+  session.begin([0, 0], [100, 0], 480);
+  assert.deepEqual(session.plan.selectedRoute.nodes, [0, 1]);
+  const plan = session.reportCondition({
+    edge: 0,
+    kind: "blocked",
+    reason: "path temporarily blocked",
+    expiresAt: 483,
+  });
+  assert.deepEqual(plan.selectedRoute.nodes, [0, 2, 1]);
+  assert.equal(plan.routeChanged, true);
+  assert.equal(plan.decision, "current route unavailable");
+});
+
+test("live simulator advances position and observed time", () => {
+  const session = new LiveRouteSession(fixture(), { preference: "fastest" });
+  const simulator = new LiveWalkSimulator(session, { stepSeconds: 10 });
+  let snapshot = simulator.begin([0, 0], [100, 0], 480);
+  assert.deepEqual(snapshot.position, [0, 0]);
+  snapshot = simulator.advance();
+  assert.ok(snapshot.position[0] > 0 && snapshot.position[0] < 100);
+  assert.deepEqual(snapshot.remainingPoints[0], snapshot.position);
+  assert.deepEqual(snapshot.remainingPoints.at(-1), [100, 0]);
+  assert.equal(snapshot.minute, 480 + 1 / 6);
+  const heldPosition = snapshot.position;
+  snapshot = simulator.addDelay(120, "stopped to talk");
+  assert.deepEqual(snapshot.position, heldPosition);
+  assert.equal(snapshot.minute, 482 + 1 / 6);
+});
+
+test("live simulator reaches its destination across scheduled replans", () => {
+  const session = new LiveRouteSession(fixture(), { preference: "fastest" });
+  const simulator = new LiveWalkSimulator(session, { stepSeconds: 10 });
+  let snapshot = simulator.begin([0, 0], [100, 0], 480);
+  let previousX = snapshot.position[0];
+
+  for (let step = 0; step < 20 && !snapshot.finished; step++) {
+    snapshot = simulator.advance();
+    assert.ok(snapshot.position[0] >= previousX);
+    previousX = snapshot.position[0];
+  }
+
+  assert.equal(snapshot.finished, true);
+  assert.deepEqual(snapshot.position, [100, 0]);
+});
+
+test(
+  "exported campus simulations finish without nearest-path oscillation",
+  {
+    skip: !fs.existsSync(payloadPath),
+  },
+  () => {
+    const campus = JSON.parse(fs.readFileSync(payloadPath, "utf8"));
+
+    campus.scenarios.forEach((scenario, scenarioIndex) => {
+      for (const preference of ["fastest", "shade"]) {
+        const router = new OfflineRouter(campus.network);
+        const session = new LiveRouteSession(router, { preference });
+        const simulator = new LiveWalkSimulator(session, { stepSeconds: 10 });
+        const start = campus.network.points[scenario.nodes[0]];
+        const finish = campus.network.points[scenario.nodes[1]];
+        let snapshot = simulator.begin(start, finish, 840);
+
+        for (let step = 0; step < 200 && !snapshot.finished; step++)
+          snapshot = simulator.advance();
+
+        assert.equal(
+          snapshot.finished,
+          true,
+          `scenario ${scenarioIndex} did not finish in ${preference} mode`,
+        );
+        assert.deepEqual(snapshot.position, finish);
+      }
+    });
+  },
+);
 
 test(
   "exported MU and Hayden corridors route indoors with door delays",

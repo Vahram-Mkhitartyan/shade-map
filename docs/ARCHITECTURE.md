@@ -8,15 +8,15 @@ routes → stability policy → GeoJSON and metrics for a 2D map.
 
 ## Boundaries
 
-| Module | Responsibility | Current state |
-| --- | --- | --- |
-| `solar` | Aware time and geographic position to solar angles/direction | Implemented |
-| `geometry` | Local metric obstacles and ray intersection | Box fixtures and polygon-prism ground shadows |
-| data | Geographic queries, projection, provenance, caching | Cached OSM prototype |
-| exposure | Sample paths at their traversal timestamps | Implemented; campus solar bins 5 min |
-| routing | Baseline and shade-aware candidates | Bounded candidate prototype |
-| navigation | Observed clock, delay/condition events, repeated replanning | Core prototype |
-| API/UI | Deliver geometry and metrics to a lightweight map | Offline file; API planned |
+| Module     | Responsibility                                                      | Current state                                 |
+| ---------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| `solar`    | Aware time and geographic position to solar angles/direction        | Implemented                                   |
+| `geometry` | Local metric obstacles and ray intersection                         | Box fixtures and polygon-prism ground shadows |
+| data       | Geographic queries, projection, provenance, caching                 | Cached OSM prototype                          |
+| exposure   | Sample paths at their traversal timestamps                          | Implemented; campus solar bins 5 min          |
+| routing    | Baseline and shade-aware candidates                                 | Bounded candidate prototype                   |
+| navigation | Observed clock, events, replanning, route commitment and simulation | Interactive prototype                         |
+| API/UI     | Deliver geometry and metrics to a lightweight map                   | Offline file; API planned                     |
 
 ## Physical contract
 
@@ -71,9 +71,24 @@ edge-scoped and time-bounded: `delay` changes traversal time, `blocked` removes 
 edge, and `discomfort` adds a seconds-equivalent preference cost without falsifying
 travel time. Outdoor fallback remains available when graph connectivity permits.
 
+`LiveWalkSimulator` advances a virtual position and clock and injects the same event
+vocabulary through the live session. The session retains a valid current route when
+a new alternative improves weighted cost by less than 20 seconds; invalid current
+routes switch immediately. This is a first stability threshold, not GPS-aware
+decision-point logic.
+
+The offline renderer caches the two neighboring Python-generated shadow polygon
+frames and blends their opacity from the observed minute. This removes half-hour
+visual snapping while retaining backend-generated geometry. Intermediate blends
+are a display transition, not freshly computed exact shadow boundaries. This layer
+does not change routing costs: the exported edge sunlight field remains five-minute,
+1/255-quantized data. During simulation, one stable route path uses traveled and
+remaining stroke intervals so progress can move continuously without dropping
+whole graph segments.
+
 This is the navigation core, not live sensing. The offline artifact has no GPS,
-traffic-signal feed, crowdsourcing backend, uncertainty distribution or route-switch
-hysteresis yet. It also cannot route beyond the exported date/time solar window.
+traffic-signal feed, crowdsourcing backend or uncertainty distribution. It also
+cannot route beyond the exported date/time solar window.
 See `docs/LIVE_ROUTING.md` for the event model and staged path to the phone app.
 
 ## Real-area projection

@@ -14,7 +14,13 @@ Move the departure-time slider and compare Fastest and More shade. Choose
 **Place me / Place finish** and tap the map, or drag either pin, to calculate a
 custom walk. Pins snap to connected mapped paths within 100 m; displayed dotted
 connectors are unverified and excluded from totals. Pan and zoom stay within the
-loaded building area.
+loaded building area. The Live walk simulator advances a visible walker and clock;
+its controls inject a conversation stop, red-light delay, temporary blockage or
+discomfort report so the remaining route can be recalculated. The route retracts
+continuously behind the walker while a faint trail preserves walked history.
+Displayed building shadows follow the simulated clock by continuously blending
+neighboring Python-generated shadow frames; routing exposure retains its
+documented five-minute field resolution.
 Owner-confirmed MU and Hayden indoor passages are included, with reported
 opening hours and estimated doorway delays. Brown lines mark approximate corridors;
 route cards identify indoor shortcuts.
@@ -53,5 +59,6 @@ real-data and DOM integration checks; those checks skip without the artifact.
 
 Current scope: real-area footprints and a pedestrian graph, flat-ground building
 shadows, arrival-time scoring of a bounded set of route candidates, and an offline
-map. Height data is mostly estimated. This is not live or verified navigation.
+map with a deterministic walk simulator. Height data is mostly estimated. This is
+not GPS-connected or verified navigation.
 Predicted building shade is not a measurement of thermal comfort or UV exposure.

@@ -60,6 +60,12 @@ test(
     assert.deepEqual(errors, []);
     assert.ok(d.querySelectorAll("#buildings path").length > 2000);
     const campus = JSON.parse(source.match(/const campus = (.*);/)[1]);
+    assert.ok(campus.frames[12].shadows.length > 2500);
+    assert.equal(
+      d.querySelectorAll("#shadows path").length,
+      campus.frames[12].shadows.length,
+    );
+    const morningShadow = d.querySelector("#shadows path").getAttribute("d");
     const points = campus.scenarios[1].nodes.map(
       (node) => campus.network.points[node],
     );
@@ -97,11 +103,38 @@ test(
     slider.value = "18";
     slider.dispatchEvent(new w.Event("input"));
     assert.ok(d.querySelectorAll(".route").length > 0);
+    assert.notEqual(
+      d.querySelector("#shadows path").getAttribute("d"),
+      morningShadow,
+    );
+    slider.value = "12";
+    slider.dispatchEvent(new w.Event("input"));
     d.getElementById("fastest").click();
     assert.match(
       d.querySelector(".route.selected strong").textContent,
       /Shortest/,
     );
+    d.getElementById("start-live").click();
+    d.getElementById("pause-live").click();
+    assert.ok(d.querySelector("#walker circle"));
+    assert.equal(d.getElementById("active").getAttribute("pathLength"), "1");
+    assert.equal(
+      d.getElementById("traveled").getAttribute("d"),
+      d.getElementById("active").getAttribute("d"),
+    );
+    assert.equal(d.getElementById("talk-live").disabled, false);
+    d.getElementById("talk-live").click();
+    assert.match(
+      d.getElementById("simulator-status").textContent,
+      /stopped to talk/i,
+    );
+    const shadowLayers = [...d.querySelectorAll("#shadows > g")];
+    assert.equal(shadowLayers.length, 2);
+    const shadowOpacity = shadowLayers.map((layer) =>
+      Number(layer.getAttribute("opacity")),
+    );
+    assert.ok(shadowOpacity.every((value) => value > 0 && value < 1));
+    assert.ok(Math.abs(shadowOpacity[0] + shadowOpacity[1] - 1) < 1e-9);
     for (let i = 0; i < 10; i++) d.getElementById("zoom-out").click();
     const view = d
         .getElementById("map")
@@ -140,7 +173,7 @@ test(
     );
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: DOM initialization, custom start/finish placement, pin drag, custom route recomputation, departure time, fastest choice, extreme zoom/pan bounds; no script errors.",
+      "PASS: DOM initialization, custom endpoints, live simulator controls, route recomputation, departure time, fastest choice, extreme zoom/pan bounds; no script errors.",
     );
     dom.window.close();
   },

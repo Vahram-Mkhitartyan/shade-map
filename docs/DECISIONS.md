@@ -77,7 +77,8 @@ longer open architectural questions.
 ## Still open
 
 App framework, live service/API, mapping platform for production, deployment,
-arbitrary-date performance, field accuracy, uncertainty model, and reroute policy.
+arbitrary-date performance, field accuracy, uncertainty model, and GPS-aware
+decision-point routing.
 
 ## Indoor shortcuts — October 21, 2026
 
@@ -150,4 +151,33 @@ do not become permanent map truth.
 
 This is deliberately an event vocabulary rather than separate pathfinding code for
 red lights, odors, crowds and future observations. GPS integration, confidence,
-community aggregation, uncertainty and switching hysteresis remain separate layers.
+community aggregation and uncertainty remain separate layers.
+
+## Live simulator and first switching threshold — October 29, 2026
+
+Use one `LiveWalkSimulator` around `LiveRouteSession`; do not create a second
+pathfinding implementation for demonstrations. The simulator advances in
+deterministic ten-second steps while the UI plays them at 20× real time. Its
+conversation, red-light, blockage and discomfort buttons all use the shared event
+vocabulary.
+
+Compare a new best route with the still-valid current remainder from the same
+observed state. In shade mode, use `duration + 3 × sunny seconds`; in fastest mode,
+use duration. Keep the current path unless weighted improvement reaches 20 seconds.
+Switch immediately when the current remainder is blocked, closed or unavailable.
+Expose the decision and gain. This threshold is a prototype constant; phone GPS
+confidence and turn locations can refine it later.
+
+## Continuous shadow display and route progress — October 29, 2026
+
+Keep shadow polygon construction in Python. Cache the two neighboring half-hour
+polygon frames in the browser and blend them according to the simulator's observed
+minute. This removes abrupt display swaps without relying on client-generated
+polygon unions, which did not paint reliably in the local browser. The blend is a
+visual transition, not an exact intermediate boundary. Keep the five-minute edge
+sunlight field unchanged for routing.
+
+Keep the simulator's current route as one stable SVG path. Reveal a muted traveled
+stroke and retract the green remaining stroke by continuous path distance. Replace
+the geometry only when routing actually selects a different path. This avoids the
+node-by-node disappearance that made correct route progress look discontinuous.

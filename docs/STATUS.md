@@ -18,6 +18,15 @@ retains the earlier synthetic demo. Eventual platforms: iPhone and Android.
 - Explicit 100 m snap bound, unverified connector offsets, same-point trips,
   unsupported/disconnected endpoint errors, and a two-hour walk limit.
 - Clamp zoom and drag to the loaded map rectangle and clip outside geometry.
+- Add a visible live-walk simulator with accelerated clock, pause/resume,
+  conversation, red-light, temporary blockage and discomfort controls.
+- Keep one stable route path during a walk, smoothly retract its green remainder,
+  and preserve completed distance as a muted trail.
+- Blend neighboring Python-generated shadow frames from the observed minute so the
+  display no longer snaps every half hour. Intermediate blends are visual, while
+  five-minute route exposure fields remain unchanged.
+- Retain a valid current route unless a new alternative improves weighted cost by
+  at least 20 seconds; switch immediately when the current remainder is invalid.
 - Rewrote roadmap/decisions to separate current behavior, planned work, and old
   synthetic-demo settings.
 
@@ -39,12 +48,13 @@ applied. Current ASU records, OSM tags, levels and fallback assumptions remain.
 - 69 Python tests pass, including ownership, elevated/ground part preservation,
   ambiguity, graph detours, sampling, arrival time, cache separation and prior
   solar/geometry/source checks. Ruff lint and formatting pass.
-- Fourteen Node tests pass (including the DOM integration test), including actual exported-network custom trips, distant and
+- Nineteen Node tests pass (including the DOM integration test), including actual exported-network custom trips, distant and
   disconnected endpoints, zero trips, arrival-time fields and extreme viewport
-  positions/zoom levels.
+  positions/zoom levels, route stability and simulated progress.
 - A DOM-only integration check passes: initialization, custom start/finish taps,
-  pin dragging, route recomputation, time changes, fastest selection, and pan/zoom
-  limits, without script errors. This does not validate browser painting or touch.
+  pin dragging, simulator start/pause/event controls, route recomputation, time
+  changes, fastest selection, and pan/zoom limits, without script errors. This does
+  not validate browser painting or touch.
 - Final embedded JavaScript syntax and payload dimensions checked.
 
 The browser URL policy blocks automatic access to this local file. No workaround
@@ -56,8 +66,8 @@ for the owner. Earlier browser checks apply to the previous map UI only.
 Custom routes use aggregated edge sunlight at midpoint arrival (not exact continuous
 integration). Candidate search is bounded, not globally optimal. Snapped connectors,
 entrances, crossings, barriers, stairs, temporary access and accessibility are not
-field-verified. No live GPS, timing uncertainty, reroute commitment, arbitrary date
-service, terrain, trees, weather or native app package yet.
+field-verified. No live GPS, timing uncertainty, GPS-aware decision-point policy,
+arbitrary date service, terrain, trees, weather or native app package yet.
 
 Python 3.9.6 emits an existing urllib3/LibreSSL warning on pvlib import; tests/builds
 pass. Prefer a current OpenSSL-backed Python for future development.
@@ -122,11 +132,13 @@ the existing Tuesday 08:00–17:00 study, entirely within both opening schedules
 no arbitrary-day preset service is claimed. The offline solar date/time window
 is unchanged. Holiday/event closures and live door status are unavailable.
 
-Current verification: 69 Python tests and 14 JavaScript/DOM tests pass,
+Current verification: 69 Python tests and 19 JavaScript/DOM tests pass,
 including real exported MU/Hayden routes, indoor cover, schedule boundaries,
-arrival-time closure exclusion, doorway delay and outdoor fallback. Ruff and
-formatting checks pass. Browser painting remains unverified under the existing
-local-file URL policy restriction.
+arrival-time closure exclusion, doorway delay, outdoor fallback and simulator
+completion across scheduled replans. All three exported campus journeys finish
+in both routing preferences without nearest-path oscillation. Ruff and formatting
+checks pass. Browser painting remains unverified under the existing local-file
+URL policy restriction.
 
 ## Live routing core — October 24, 2026
 
@@ -141,4 +153,19 @@ preference cost.
 This replaces the custom router's departure-state edge pricing. Preset Python
 routes still use the earlier bounded candidate generator followed by arrival-time
 scoring. Live GPS, speed estimation, automatic red-light sensing, observation
-storage/sharing, confidence decay and reroute hysteresis are not implemented.
+storage/sharing and confidence decay are not implemented.
+
+## Live simulator and route stability — October 29, 2026
+
+The offline campus app now plays a virtual walk at 20× real time. The orange
+walker advances along the selected route while observed time changes. Controls
+inject a two-minute conversation, 45-second red-light edge delay, three-minute
+temporary blockage or discomfort penalty. All events re-use `LiveRouteSession`;
+there is no separate demonstration router.
+
+The session compares the valid current remainder with the new preferred route.
+It keeps the current route when weighted improvement is under 20 seconds and
+switches immediately if the current path becomes invalid. Shade-mode comparison
+uses duration plus three times sunny seconds; displayed duration remains physical
+travel time. Nineteen JavaScript/DOM tests pass. Browser paint, animation timing,
+touch behavior and real GPS remain unverified.

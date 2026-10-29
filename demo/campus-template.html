@@ -113,6 +113,9 @@
       .dot.shadow {
         background: #abb6a5;
       }
+      #shadows.hide-estimated [data-estimated="true"] {
+        display: none;
+      }
       .dot.building {
         background: #d2d5c7;
         border: 1px solid #a3ac99;
@@ -208,6 +211,43 @@
       .metric b {
         font-variant-numeric: tabular-nums;
       }
+      .simulator {
+        border: 1px solid #c9d1c3;
+        border-radius: 14px;
+        padding: 14px;
+        margin: 16px 0;
+        background: #eef1e7;
+      }
+      .simulator strong {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .simulator p {
+        font-size: 12px;
+        margin: 5px 0 10px;
+      }
+      .simulator-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+      .simulator-actions button {
+        border: 1px solid #b8c3b2;
+        border-radius: 8px;
+        background: #fff;
+        padding: 7px 9px;
+        font-size: 11px;
+      }
+      .simulator-actions button.primary {
+        background: #285640;
+        border-color: #285640;
+        color: white;
+      }
+      .simulator-actions button:disabled {
+        cursor: default;
+        opacity: 0.45;
+      }
       .note {
         font-size: 11px;
         line-height: 1.6;
@@ -262,6 +302,7 @@
         .panel > .field,
         .panel > .modes,
         .panel > #routes,
+        .panel > .simulator,
         .panel > .note {
           grid-column: 1/-1;
         }
@@ -402,14 +443,26 @@
                 <g id="alternatives"></g>
                 <g id="covered-walkways"></g>
                 <path
+                  id="traveled"
+                  fill="none"
+                  stroke="#769080"
+                  stroke-width="5"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                  opacity="0.42"
+                  style="transition: stroke-dasharray 480ms linear"
+                />
+                <path
                   id="active"
                   fill="none"
                   stroke="#245e46"
                   stroke-width="5"
                   stroke-linejoin="round"
                   stroke-linecap="round"
+                  style="transition: stroke-dasharray 480ms linear"
                 />
                 <g id="pins"></g>
+                <g id="walker"></g>
               </g>
               <g id="labels" fill="#53634c" font-size="12"></g>
             </svg>
@@ -477,6 +530,20 @@
             ><button id="shade" aria-pressed="true">More shade</button>
           </div>
           <div id="routes" aria-label="Candidate walking routes"></div>
+          <section class="simulator" aria-labelledby="simulator-title">
+            <strong id="simulator-title">Live walk simulator</strong>
+            <p id="simulator-status" role="status">
+              Start a virtual walk to watch time, shade and routing change.
+            </p>
+            <div class="simulator-actions">
+              <button id="start-live" class="primary">Start walk</button>
+              <button id="pause-live" disabled>Pause</button>
+              <button id="talk-live" disabled>Talk +2 min</button>
+              <button id="light-live" disabled>Red light +45 sec</button>
+              <button id="block-live" disabled>Block next path</button>
+              <button id="smell-live" disabled>Bad smell ahead</button>
+            </div>
+          </section>
           <div class="metric"><span>Direct sun</span><b id="sunny"></b></div>
           <div class="metric"><span>Extra walking</span><b id="extra"></b></div>
           <label class="height-toggle"
@@ -490,7 +557,7 @@
             Indoor routes follow owner-confirmed corridors and reported hours;
             holiday closures are unknown. Not a globally optimal route. No
             trees, terrain, campus-wide access validation, crossing delays, or
-            live navigation.
+            live GPS navigation.
           </p>
           <p class="note" id="snap"></p>
         </aside>
@@ -537,6 +604,12 @@
       let customResult = null;
       let customError = "";
       let routeCacheKey = "";
+      let liveSession = null;
+      let liveSimulator = null;
+      let liveSnapshot = null;
+      let liveTimer = null;
+      let liveRunning = false;
+      const shadowLayerCache = new Map();
       let endpointPositions = campus.scenarios[0].nodes.map((node) => [
         ...campus.network.points[node],
       ]);
@@ -552,10 +625,61 @@
           .map(([x, y], index) => `${index ? "L" : "M"}${x},${y}`)
           .join(" ");
       }
+      function shadowLayer(frame) {
+        if (shadowLayerCache.has(frame.minute))
+          return shadowLayerCache.get(frame.minute);
+        const layer = element("g", { "data-minute": frame.minute });
+        layer.append(
+          ...frame.shadows.map(([path, source]) =>
+            element("path", {
+              d: path,
+              fill:
+                source === "tagged" || source === "asu" ? "#6e8977" : "#ab8e61",
+              opacity: 0.28,
+              "data-estimated": String(source !== "tagged" && source !== "asu"),
+            }),
+          ),
+        );
+        shadowLayerCache.set(frame.minute, layer);
+        return layer;
+      }
+      function drawInterpolatedShadows(minute) {
+        const lastIndex = campus.frames.length - 1;
+        let upperIndex = campus.frames.findIndex(
+          (frame) => frame.minute >= minute,
+        );
+        if (upperIndex < 0) upperIndex = lastIndex;
+        const lowerIndex = Math.max(0, upperIndex - 1);
+        const lower = campus.frames[lowerIndex];
+        const upper = campus.frames[upperIndex];
+        const span = upper.minute - lower.minute;
+        const amount = span
+          ? Math.max(0, Math.min(1, (minute - lower.minute) / span))
+          : 0;
+        const lowerLayer = shadowLayer(lower);
+        lowerLayer.setAttribute("opacity", 1 - amount);
+        let layers = [lowerLayer];
+        if (upper !== lower && amount >= 1) {
+          const upperLayer = shadowLayer(upper);
+          upperLayer.setAttribute("opacity", 1);
+          layers = [upperLayer];
+        } else if (upper !== lower) {
+          const upperLayer = shadowLayer(upper);
+          upperLayer.setAttribute("opacity", amount);
+          layers.push(upperLayer);
+        }
+        const container = document.getElementById("shadows");
+        container.classList.toggle(
+          "hide-estimated",
+          !document.getElementById("estimated").checked,
+        );
+        container.replaceChildren(...layers);
+      }
       function minutes(seconds) {
         return `${(seconds / 60).toFixed(1)} min`;
       }
       function routes() {
+        if (liveSnapshot) return liveSnapshot.plan.candidates;
         if (!customEndpoints)
           return campus.frames[Number(slider.value)].routes[
             Number(journey.value)
@@ -581,6 +705,12 @@
       function recommendation() {
         const candidates = routes();
         if (!candidates.length) return -1;
+        if (liveSnapshot) {
+          const key = liveSession.routeKey(liveSnapshot.plan.selectedRoute);
+          return candidates.findIndex(
+            (route) => liveSession.routeKey(route) === key,
+          );
+        }
         return candidates
           .map((route, index) => ({ ...route, index }))
           .sort((a, b) =>
@@ -596,11 +726,14 @@
         const pixelScale =
           view[2] / Math.max(1, map.getBoundingClientRect().width);
         map
-          .querySelectorAll("[data-pin] circle")
+          .querySelectorAll("[data-pin] circle, #walker circle")
           .forEach((pin) => pin.setAttribute("r", 11 * pixelScale));
         const scale = view[2] / 900;
         document
           .getElementById("active")
+          .setAttribute("stroke-width", Math.max(3, scale * 4));
+        document
+          .getElementById("traveled")
           .setAttribute("stroke-width", Math.max(3, scale * 4));
         document
           .getElementById("labels")
@@ -637,33 +770,22 @@
         ]);
       }
       function render(choose = true) {
-        const frame = campus.frames[Number(slider.value)];
+        const requestedMinute = liveSnapshot
+          ? liveSnapshot.minute
+          : campus.frames[Number(slider.value)].minute;
         const candidates = routes();
-        if (choose) selectedRoute = recommendation();
-        const selected = candidates[selectedRoute];
-        const hour = Math.floor(frame.minute / 60);
+        if (choose || liveSnapshot) selectedRoute = recommendation();
+        const selected = liveSnapshot
+          ? liveSnapshot.plan.selectedRoute
+          : candidates[selectedRoute];
+        const displayMinute = Math.round(requestedMinute);
+        const hour = Math.floor(displayMinute / 60);
         document.getElementById("time").textContent =
-          `${hour % 12 || 12}:${String(frame.minute % 60).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
-        const showEstimated = document.getElementById("estimated").checked;
-        document.getElementById("shadows").replaceChildren(
-          ...frame.shadows
-            .filter(
-              ([, source]) =>
-                showEstimated || source === "tagged" || source === "asu",
-            )
-            .map(([path, source]) =>
-              element("path", {
-                d: path,
-                fill:
-                  source === "tagged" || source === "asu"
-                    ? "#6e8977"
-                    : "#ab8e61",
-                opacity: 0.28,
-              }),
-            ),
-        );
+          `${hour % 12 || 12}:${String(displayMinute % 60).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+        drawInterpolatedShadows(requestedMinute);
         if (!selected) {
           document.getElementById("active").setAttribute("d", "");
+          document.getElementById("traveled").setAttribute("d", "");
           document.getElementById("alternatives").replaceChildren();
           document.getElementById("routes").textContent = customError;
           document.getElementById("sunny").textContent = "—";
@@ -673,9 +795,34 @@
           drawPins();
           return;
         }
-        document
-          .getElementById("active")
-          .setAttribute("d", pathData(selected.points));
+        const activePath = document.getElementById("active");
+        const traveledPath = document.getElementById("traveled");
+        if (liveSnapshot && liveSimulator) {
+          const points = liveSimulator.routePoints;
+          const progress = liveSimulator.routeDuration
+            ? liveSimulator.routeElapsed / liveSimulator.routeDuration
+            : 1;
+          const routePath = pathData(points);
+          activePath.setAttribute("d", routePath);
+          traveledPath.setAttribute("d", routePath);
+          activePath.setAttribute("pathLength", "1");
+          traveledPath.setAttribute("pathLength", "1");
+          activePath.setAttribute(
+            "stroke-dasharray",
+            `0 ${progress} ${1 - progress} 0`,
+          );
+          traveledPath.setAttribute(
+            "stroke-dasharray",
+            `${progress} ${1 - progress}`,
+          );
+        } else {
+          activePath.setAttribute("d", pathData(selected.points));
+          traveledPath.setAttribute("d", "");
+          activePath.removeAttribute("pathLength");
+          activePath.removeAttribute("stroke-dasharray");
+          traveledPath.removeAttribute("pathLength");
+          traveledPath.removeAttribute("stroke-dasharray");
+        }
         document.getElementById("alternatives").replaceChildren(
           ...candidates
             .filter((_, index) => index !== selectedRoute)
@@ -722,6 +869,7 @@
         document.getElementById("snap").textContent =
           `${customEndpoints ? "Custom walk" : info.from + " → " + info.to}. Route snaps: ${offsets.map((value) => Math.round(value)).join(" / ")} m. Dashed pin-to-path connectors are unverified and excluded from walking/exposure totals. Map-edge shadows may miss buildings outside the buffer. Hiding estimated shadows changes only display, not scores.${customEndpoints ? " Custom scores use 3 m edge samples at midpoint arrival times, rounded to 5 min; sun fractions quantized to 1/255." : ""}`;
         drawPins(selected);
+        drawWalker();
         setView(currentView);
       }
       const [west, south, east, north] = campus.bounds;
@@ -852,12 +1000,145 @@
         `${total.toLocaleString()} building polygons in view: ${campus.coverage.asu || 0} with ASU facility heights, ${campus.coverage.tagged || 0} with OSM height tags, ${campus.coverage.levels || 0} estimated from floors, ${campus.coverage.assumed || 0} using a 9 m fallback. Predicted shade is highly uncertain where heights are missing. Shadows show departure time; traversal scores advance time in 5 min solar bins (±2.5 min).`;
       document.getElementById("snapshot").textContent =
         `Map snapshot ${campus.snapshot.replace("T", " ").replace("Z", " UTC")}`;
+
+      const liveButtons = [
+        "pause-live",
+        "talk-live",
+        "light-live",
+        "block-live",
+        "smell-live",
+      ];
+      function setLiveControls(enabled) {
+        liveButtons.forEach((id) => {
+          document.getElementById(id).disabled = !enabled;
+        });
+      }
+      function stopLiveTimer() {
+        if (liveTimer !== null) window.clearInterval(liveTimer);
+        liveTimer = null;
+        liveRunning = false;
+        document.getElementById("pause-live").textContent = "Resume";
+      }
+      function resetLive(message = null) {
+        stopLiveTimer();
+        liveSession = null;
+        liveSimulator = null;
+        liveSnapshot = null;
+        setLiveControls(false);
+        document.getElementById("start-live").textContent = "Start walk";
+        document.getElementById("pause-live").textContent = "Pause";
+        document.getElementById("simulator-status").textContent =
+          message ||
+          "Start a virtual walk to watch time, shade and routing change.";
+        drawWalker();
+      }
+      function liveStatus(event = "Walking") {
+        if (!liveSnapshot) return;
+        const plan = liveSnapshot.plan;
+        const route = plan.selectedRoute;
+        const state = liveSnapshot.finished ? "Arrived" : event;
+        const remainingSeconds = liveSimulator
+          ? Math.max(
+              0,
+              liveSimulator.routeDuration - liveSimulator.routeElapsed,
+            )
+          : route.duration;
+        document.getElementById("simulator-status").textContent =
+          `${state} · ${minutes(remainingSeconds)} remaining · ${route.shade}% shade · ${plan.decision}.`;
+      }
+      function runLiveStep() {
+        if (!liveRunning || !liveSimulator) return;
+        try {
+          liveSnapshot = liveSimulator.advance();
+          render(false);
+          liveStatus(liveSnapshot.plan.reason);
+          if (liveSnapshot.finished) {
+            stopLiveTimer();
+            setLiveControls(false);
+            document.getElementById("start-live").textContent = "Restart walk";
+            liveStatus("Arrived");
+          }
+        } catch (error) {
+          stopLiveTimer();
+          document.getElementById("simulator-status").textContent =
+            `Simulation paused: ${error.message}`;
+        }
+      }
+      function startLiveTimer() {
+        stopLiveTimer();
+        liveRunning = true;
+        document.getElementById("pause-live").textContent = "Pause";
+        // Twenty simulated seconds per real second keeps a campus walk observable.
+        liveTimer = window.setInterval(runLiveStep, 500);
+      }
+      function startLiveWalk() {
+        resetLive();
+        const minute = campus.frames[Number(slider.value)].minute;
+        try {
+          liveSession = new LiveRouteSession(router, {
+            preference,
+            minimumSwitchGainSeconds: 20,
+          });
+          liveSimulator = new LiveWalkSimulator(liveSession, {
+            stepSeconds: 10,
+          });
+          liveSnapshot = liveSimulator.begin(
+            endpointPositions[0],
+            endpointPositions[1],
+            minute,
+          );
+          setLiveControls(true);
+          document.getElementById("start-live").textContent = "Restart walk";
+          render(false);
+          liveStatus("Started");
+          startLiveTimer();
+        } catch (error) {
+          resetLive(`Cannot start simulation: ${error.message}`);
+        }
+      }
+      function applyLiveEvent(kind) {
+        if (!liveSimulator || liveSnapshot?.finished) return;
+        try {
+          if (kind === "talk") {
+            liveSnapshot = liveSimulator.addDelay(120, "stopped to talk");
+          } else {
+            const edge = liveSimulator.nextEdge();
+            if (!Number.isInteger(edge)) throw new Error("No next path edge.");
+            const now = liveSession.observedMinute;
+            const condition = {
+              edge,
+              kind,
+              expiresAt: now + (kind === "blocked" ? 3 : 10),
+            };
+            if (kind === "delay") {
+              condition.seconds = 45;
+              condition.reason = "red light";
+            }
+            if (kind === "blocked")
+              condition.reason = "path temporarily blocked";
+            if (kind === "discomfort") {
+              condition.penaltySeconds = 120;
+              condition.reason = "bad smell ahead";
+            }
+            liveSnapshot = liveSimulator.reportCondition(condition);
+          }
+          render(false);
+          liveStatus(liveSnapshot.plan.reason);
+        } catch (error) {
+          document.getElementById("simulator-status").textContent =
+            `Event ignored: ${error.message}`;
+        }
+      }
       fitArea();
       render();
       fitRoute();
-      slider.addEventListener("input", () => render());
+      slider.addEventListener("input", () => {
+        resetLive("Departure time changed. Start a new simulated walk.");
+        render();
+      });
       journey.addEventListener("change", () => {
         if (journey.value === "custom") return;
+        resetLive("Walk changed. Start a new simulation when ready.");
         customEndpoints = null;
         customResult = null;
         routeCacheKey = "";
@@ -873,9 +1154,42 @@
       ["fastest", "shade"].forEach((mode) =>
         document.getElementById(mode).addEventListener("click", () => {
           preference = mode;
-          render();
+          if (liveSimulator) {
+            const plan = liveSession.setPreference(mode);
+            liveSimulator.usePlan(plan);
+            liveSnapshot = liveSimulator.snapshot(plan);
+            render(false);
+            liveStatus("Preference changed");
+          } else {
+            render();
+          }
         }),
       );
+      document
+        .getElementById("start-live")
+        .addEventListener("click", startLiveWalk);
+      document.getElementById("pause-live").addEventListener("click", () => {
+        if (!liveSimulator || liveSnapshot?.finished) return;
+        if (liveRunning) {
+          stopLiveTimer();
+          liveStatus("Paused");
+        } else {
+          startLiveTimer();
+          liveStatus("Resumed");
+        }
+      });
+      document
+        .getElementById("talk-live")
+        .addEventListener("click", () => applyLiveEvent("talk"));
+      document
+        .getElementById("light-live")
+        .addEventListener("click", () => applyLiveEvent("delay"));
+      document
+        .getElementById("block-live")
+        .addEventListener("click", () => applyLiveEvent("blocked"));
+      document
+        .getElementById("smell-live")
+        .addEventListener("click", () => applyLiveEvent("discomfort"));
       document
         .getElementById("zoom-in")
         .addEventListener("click", () => zoom(0.75));
@@ -946,6 +1260,33 @@
         });
         layer.replaceChildren(...markers);
       }
+      function drawWalker() {
+        const layer = document.getElementById("walker");
+        if (!liveSnapshot?.position) {
+          layer.replaceChildren();
+          return;
+        }
+        const scale =
+          currentView[2] / Math.max(1, map.getBoundingClientRect().width);
+        const [x, y] = liveSnapshot.position;
+        let marker = layer.querySelector("circle");
+        if (!marker) {
+          marker = element("circle", {
+            fill: "#f0a61a",
+            stroke: "#25392e",
+            "stroke-width": 2,
+            "vector-effect": "non-scaling-stroke",
+            style: "transition: cx 480ms linear, cy 480ms linear",
+          });
+          const title = element("title", {});
+          title.textContent = "Simulated walker";
+          marker.append(title);
+          layer.append(marker);
+        }
+        marker.setAttribute("cx", x);
+        marker.setAttribute("cy", y);
+        marker.setAttribute("r", 11 * scale);
+      }
       function setPlacement(index) {
         placing = index;
         document
@@ -960,6 +1301,7 @@
             : `Tap inside the loaded map to place ${index === 0 ? "your position" : "the finish"}.`;
       }
       function moveEndpoint(index, point) {
+        resetLive("Endpoint moved. Start a new simulated walk.");
         endpointPositions[index] = [
           Math.max(west, Math.min(east, point[0])),
           Math.max(south, Math.min(north, point[1])),
