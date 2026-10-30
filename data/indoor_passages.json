@@ -118,5 +118,36 @@
       ["turn", "south"]
     ],
     "geometry_note": "Approximate registration using ASU Level One entrances 222/224 and OSM northwest facade control. West and south doors projected to the building exterior. Distance is estimated, not surveyed. Concourse elevator entrance 223 is excluded."
+  },
+  {
+    "id": "durham-east-west",
+    "name": "Durham Hall east-west passage",
+    "building": "Durham Hall",
+    "routing_enabled": true,
+    "source": "Owner-marked map trace and owner-confirmed public entrances through 18:00 with ASU ID required afterward, 2026-10-29",
+    "schedule": [
+      [480, 1140],
+      [480, 1140],
+      [480, 1140],
+      [480, 1140],
+      [480, 1140],
+      [480, 1140],
+      [480, 1140]
+    ],
+    "access_after": 1080,
+    "required_access": "asu-id",
+    "step_free": null,
+    "coordinates": {
+      "east": [-111.93445726804312, 33.420968026322036],
+      "bend": [-111.93469643563526, 33.42096622429562],
+      "west": [-111.93470884303507, 33.420828346019086]
+    },
+    "doors": ["east", "west"],
+    "links": [
+      ["east", "bend"],
+      ["bend", "west"]
+    ],
+    "access_note": "Public through 18:00; ASU ID required afterward. The current prototype limits this passage to its 08:00–19:00 solar-data window. Final closing time and east-door step-free status remain unconfirmed.",
+    "geometry_note": "Approximate geographic trace between ASU entrance records 203 (east) and 226 (west), following the owner-marked bend. Doors are projected to the Durham footprint; distance is estimated, not surveyed."
   }
 ]

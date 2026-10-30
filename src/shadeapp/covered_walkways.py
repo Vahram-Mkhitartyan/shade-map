@@ -10,11 +10,11 @@ from shadeapp.geodata import to_local
 
 
 def connect_walkways(graph: nx.Graph, features: List[dict]) -> nx.Graph:
-    """Return a graph with confirmed paths and bounded Palm Walk ties.
+    """Return a graph with confirmed covered paths.
 
-    Split the nearest named Palm Walk edge at each endpoint projection. This
-    preserves connectivity even when both connections share one original edge.
-    Short exterior ties are unroofed. Work on a copy so rejection is atomic.
+    Centerlines split the nearest eligible pedestrian edge at each endpoint
+    projection. Short ties between observed endpoints and mapped paths remain
+    unroofed. Work on a copy so rejection is atomic.
     """
     result = deepcopy(graph)
     next_node = min(0, min(result.nodes, default=0)) - 1
@@ -32,10 +32,22 @@ def connect_walkways(graph: nx.Graph, features: List[dict]) -> nx.Graph:
                 "This connector requires a straight two-point path"
             )
         endpoints = []
-        for point in (points[0], points[-1]):
+        path_names = properties.get("connection_path_names")
+        max_distances = properties.get("connection_max_distances_m")
+        for index, point in enumerate((points[0], points[-1])):
             choices = []
+            path_name = (
+                path_names[index]
+                if path_names is not None
+                else properties.get("connection_path_name")
+            )
+            max_distance = (
+                max_distances[index]
+                if max_distances is not None
+                else properties.get("connection_max_distance_m", 15)
+            )
             for first, second, data in result.edges(data=True):
-                if data.get("name") != "Palm Walk":
+                if path_name and data.get("name") != path_name:
                     continue
                 line = LineString(
                     [
@@ -52,9 +64,14 @@ def connect_walkways(graph: nx.Graph, features: List[dict]) -> nx.Graph:
                         projection,
                     )
                 )
-            if not choices or min(choice[0] for choice in choices) > 15:
-                raise ValueError("Covered path is too far from Palm Walk")
-            _, first, second, projection = min(choices, key=lambda row: row[0])
+            if (
+                not choices
+                or min(choice[0] for choice in choices) > max_distance
+            ):
+                raise ValueError("Covered endpoint is too far from a path")
+            distance, first, second, projection = min(
+                choices, key=lambda row: row[0]
+            )
             anchor = (projection.x, projection.y)
             junction = None
             for node in (first, second):
@@ -75,16 +92,20 @@ def connect_walkways(graph: nx.Graph, features: List[dict]) -> nx.Graph:
                     result.add_edge(
                         neighbor, junction, **{**attributes, "length": length}
                     )
-            endpoint, next_node = next_node, next_node - 1
-            result.add_node(endpoint, point=point)
-            result.add_edge(
-                junction,
-                endpoint,
-                length=Point(point).distance(projection),
-                name=properties["name"] + " connection",
-                covered=False,
-                source="owner-confirmed connection",
-            )
+            endpoint = junction
+            if distance >= 0.01:
+                endpoint, next_node = next_node, next_node - 1
+                result.add_node(endpoint, point=point)
+                result.add_edge(
+                    junction,
+                    endpoint,
+                    length=distance,
+                    name=properties["name"] + " connection",
+                    covered=False,
+                    source=properties.get(
+                        "connection_source", "owner-confirmed connection"
+                    ),
+                )
             endpoints.append(endpoint)
         line = LineString(points)
         result.add_edge(

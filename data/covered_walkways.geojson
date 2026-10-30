@@ -18,6 +18,8 @@
         "roof_height_m": null,
         "routing_enabled": true,
         "routing_status": "both Palm Walk connections confirmed by owner",
+        "connection_path_name": "Palm Walk",
+        "connection_max_distance_m": 15,
         "solar_model_status": "covered-path shade proxy; ignores side-entry sunlight and column obstructions",
         "connection_observation": "Owner confirms both ends connect directly to Palm Walk, 2026-10-21.",
         "both_ends_connected": true
@@ -33,6 +35,45 @@
             -111.9326374,
             33.4175093
           ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "engineering-center-west-covered-spine",
+      "properties": {
+        "name": "Engineering Center internal covered passage",
+        "building_osm_ids": [
+          "way/29216420",
+          "way/29216480",
+          "way/29216547",
+          "way/29216548",
+          "way/29216549",
+          "way/29216555"
+        ],
+        "side": "internal gap east of Engineering Annex through F-Wing",
+        "roof_covered": true,
+        "columns_along_path": null,
+        "extent": "Annex/A-Wing gap to the cross path north of F-Wing",
+        "source": "Owner-marked screenshots, roof-cover observation and two alignment corrections, 2026-10-29 to 2026-10-30",
+        "trace_method": "Approximate straight centerline registered to the north cross path and the open Annex/A-Wing gap",
+        "alignment_verified_on_site": true,
+        "width_m": null,
+        "roof_height_m": null,
+        "routing_enabled": true,
+        "connection_path_names": [null, "Palm Walk"],
+        "connection_max_distances_m": [1, 60],
+        "connection_source": "Screenshot-registered open-gap connector; field verification pending",
+        "routing_status": "internal passage connected north of F-Wing; unroofed registration tie follows the open Annex/A-Wing gap west to Palm Walk",
+        "solar_model_status": "covered-path shade proxy; ignores side-entry sunlight and support obstructions",
+        "connection_observation": "Owner correction shifts the passage east into the narrow space beside Engineering Annex. Its covered portion starts in the Annex/A-Wing gap, does not cross A-Wing, and continues north to the cross street beyond F-Wing.",
+        "both_ends_connected": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-111.932104996, 33.4198207525],
+          [-111.9320933555, 33.4187314213]
         ]
       }
     }

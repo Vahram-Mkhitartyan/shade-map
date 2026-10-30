@@ -19,11 +19,11 @@ map files are ignored by Git, following AGENTS.md.
 
 Bounds are south, west, north, east:
 
-| Purpose | Bounds |
-| --- | --- |
-| Building context | 33.398, -111.958, 33.449, -111.898 |
+| Purpose                  | Bounds                             |
+| ------------------------ | ---------------------------------- |
+| Building context         | 33.398, -111.958, 33.449, -111.898 |
 | Walking-network download | 33.404, -111.950, 33.443, -111.905 |
-| Visible neighborhood | 33.409, -111.945, 33.439, -111.914 |
+| Visible neighborhood     | 33.409, -111.945, 33.439, -111.914 |
 
 No ASU administrative polygon clips the data. The visible neighborhood includes
 campus, downtown/Mill Avenue, and adjacent blocks. Outer buildings can contribute
@@ -137,8 +137,12 @@ their placement and show an error rather than an invented route. Same-node trips
 return zero travel duration. Pan/zoom and pin dragging stop at the visible bounds;
 outer-context buildings are clipped from display but still contribute shadows.
 
-Height enrichment is paused by the owner. Current source estimates remain as
-documented; this refactor does not introduce Overture or other new height data.
+Broad height enrichment is paused by the owner. A narrow direct-observation
+override may be stored in `data/height_overrides.json` by exact OSM ID with its
+provenance and uncertainty. The Crêpe Club is currently the only override: 3 m,
+based on an owner visual estimate and explicitly marked low confidence. Current
+source estimates otherwise remain as documented; this does not introduce
+Overture or another bulk height source.
 
 After an interface-only edit, run `python scripts/build_campus.py --render-only`
 to repackage `.cache/campus-payload.json` without recalculating shadows. A full

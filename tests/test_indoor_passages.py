@@ -26,6 +26,19 @@ def test_registration_rejects_collinear_controls():
         )
 
 
+def test_geographic_trace_projects_each_named_point():
+    passage = register_trace(
+        {
+            "coordinates": {
+                "west": [-111.93470884303507, 33.420828346019086],
+                "east": [-111.93445726804312, 33.420968026322036],
+            }
+        }
+    )
+    assert passage["points"]["west"] != passage["points"]["east"]
+    assert passage["points"]["west"][0] < passage["points"]["east"][0]
+
+
 def test_door_ties_preserve_exterior_graph_without_crossing_building():
     graph = nx.Graph()
     for key, point in enumerate([(-5, -5), (15, -5), (15, 15), (-5, 15)]):

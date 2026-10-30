@@ -3,7 +3,7 @@
 import pytest
 from shapely.geometry import Polygon
 
-from shadeapp.asu_heights import apply_asu_heights
+from shadeapp.asu_heights import apply_asu_heights, apply_height_overrides
 from shadeapp.geodata import MapBuilding, to_local
 from shadeapp.polygons import Building
 
@@ -79,3 +79,26 @@ def test_ground_level_part_keeps_its_own_height():
     result, count = apply_asu_heights([original], [facility()])
     assert count == 0
     assert result[0] is original
+
+
+def test_explicit_override_replaces_only_the_matching_osm_building():
+    matching = fixture_building()
+    other = MapBuilding(
+        matching.model,
+        "way/2",
+        "Other",
+        "assumed",
+    )
+    overrides = [
+        {
+            "osm_id": "way/1",
+            "height_m": 3,
+            "source": "owner-estimate",
+            "reference": "Owner visual estimate",
+        }
+    ]
+    result, count = apply_height_overrides([matching, other], overrides)
+    assert count == 1
+    assert result[0].model.height_m == 3
+    assert result[0].height_source == "owner-estimate"
+    assert result[1] is other

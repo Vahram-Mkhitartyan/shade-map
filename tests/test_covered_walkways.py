@@ -26,6 +26,7 @@ def test_both_ends_split_same_palm_walk_edge_without_disconnect():
             "both_ends_connected": True,
             "name": "Covered path",
             "source": "owner",
+            "connection_path_name": "Palm Walk",
         },
         "geometry": {
             "coordinates": [
@@ -56,3 +57,42 @@ def test_roof_proxy_does_not_cover_adjacent_path_or_connector():
     )
     result = field.blocked(points([[0, 10], [2, 10], [0, 25]]), 1140)
     assert result.tolist() == [True, False, False]
+
+
+def test_internal_passage_uses_separate_rules_for_each_endpoint():
+    graph = nx.Graph()
+    coordinates = [
+        (-111.932104996, 33.4198207525),
+        (-111.9320933555, 33.4187314213),
+    ]
+    north = to_local(*coordinates[0])
+    south = to_local(*coordinates[1])
+    graph.add_node(0, point=(north[0] - 20, north[1]))
+    graph.add_node(1, point=(north[0] + 20, north[1]))
+    graph.add_node(2, point=(south[0] - 20, south[1] - 20))
+    graph.add_node(3, point=(south[0] - 20, south[1] + 20))
+    graph.add_edge(0, 1, name="North cross path", length=40)
+    graph.add_edge(2, 3, name="Palm Walk", length=40)
+    feature = {
+        "properties": {
+            "routing_enabled": True,
+            "both_ends_connected": True,
+            "name": "Internal covered passage",
+            "source": "owner",
+            "connection_path_names": [None, "Palm Walk"],
+            "connection_max_distances_m": [1, 25],
+        },
+        "geometry": {"coordinates": coordinates},
+    }
+
+    result = connect_walkways(graph, [feature])
+
+    assert result.number_of_nodes() == 7
+    assert result.number_of_edges() == 6
+    assert nx.is_connected(result)
+    covered = [
+        data for *_, data in result.edges(data=True) if data.get("covered")
+    ]
+    assert len(covered) == 1
+    assert 118 < covered[0]["length"] < 125
+    assert all(data["length"] > 0 for *_, data in result.edges(data=True))

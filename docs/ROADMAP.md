@@ -47,6 +47,12 @@ shaded outdoor path near Palm Walk/SDFC as a separate lead.
 
 Do not describe candidate search as globally optimal time-dependent routing.
 Height quality and additional sources are outside the current work order.
+Direct owner-observed corrections may still be applied to an exact footprint;
+The Crêpe Club currently has a low-confidence 3 m correction.
+
+The Engineering Center's internal passage from the Annex/A-Wing gap to north of
+F-Wing is enabled as owner-reported roof cover. Field-check its exact centerline,
+the unroofed gap connection, width, low-angle side sun and supports.
 
 ## Indoor passage progress — October 21, 2026
 
@@ -54,3 +60,7 @@ MU and Hayden owner-confirmed traces are connected, with reported hours,
 doorway-delay assumptions, indoor cover and outdoor fallback. Next: field-check
 registration/distances, measure transition delays, add holiday exceptions and
 identify engineering-building public corridors. See STATUS.md for limits.
+
+Durham Hall's owner-confirmed east-west trace is also connected. Its public
+18:00 cutoff and later ASU-ID requirement are enforced by the offline router.
+Field-check its final closing time, east-door step-free status and corridor time.

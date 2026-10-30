@@ -16,7 +16,14 @@ from shadeapp.geodata import to_local
 
 
 def register_trace(passage: dict) -> dict:
-    """Fit an affine map using non-collinear entrance/facade controls."""
+    """Project a geographic trace or fit an affine floor-plan registration."""
+    if "coordinates" in passage:
+        points = {
+            key: to_local(*coordinates)
+            for key, coordinates in passage["coordinates"].items()
+        }
+        return {**passage, "points": points}
+
     controls = passage["controls"]
     pixels = np.array([row["pixel"] + [1] for row in controls])
     targets = np.array(
@@ -57,6 +64,8 @@ def connect_passages(graph: nx.Graph, passages: List[dict]) -> nx.Graph:
             "passage": passage["id"],
             "schedule": passage["schedule"],
             "name": passage["name"],
+            "access_after": passage.get("access_after"),
+            "required_access": passage.get("required_access"),
         }
         for first, second in passage["links"]:
             result.add_edge(

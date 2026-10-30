@@ -13,7 +13,7 @@ import numpy as np
 from shapely.geometry import LineString, Point, box
 from shapely.geometry.base import BaseGeometry
 
-from shadeapp.asu_heights import apply_asu_heights
+from shadeapp.asu_heights import apply_asu_heights, apply_height_overrides
 from shadeapp.covered_walkways import connect_walkways, covered_segments
 from shadeapp.geodata import load_buildings, to_local, walking_graph
 from shadeapp.indoor_passages import connect_passages, register_trace
@@ -96,8 +96,16 @@ def build() -> None:
     buildings, asu_matches = apply_asu_heights(
         buildings, asu_source["features"]
     )
+    height_overrides = json.loads(
+        (ROOT / "data/height_overrides.json").read_text()
+    )
+    buildings, override_matches = apply_height_overrides(
+        buildings, height_overrides
+    )
     print(
-        f"Matched {asu_matches} OSM polygons to ASU height records", flush=True
+        f"Matched {asu_matches} ASU heights and {override_matches} "
+        "explicit overrides",
+        flush=True,
     )
     graph = walking_graph(source["elements"])
     largest = max(nx.connected_components(graph), key=len)
@@ -130,7 +138,7 @@ def build() -> None:
             boundary = mu.model.footprint.boundary
             anchor = boundary.interpolate(boundary.project(point))
             if point.distance(anchor) > 12:
-                raise ValueError("MU door registration exceeds 12 m")
+                raise ValueError("Indoor door registration exceeds 12 m")
             passage["points"][key] = (anchor.x, anchor.y)
     graph = connect_passages(graph, passages)
     print(
@@ -262,6 +270,8 @@ def build() -> None:
             attributes.get("delay", 0),
             attributes.get("schedule"),
             attributes.get("passage"),
+            attributes.get("access_after"),
+            attributes.get("required_access"),
         ]
         for first, second, attributes in edges
     ]
@@ -286,6 +296,11 @@ def build() -> None:
                 [round(value, 2) for value in graph.nodes[node]["point"]]
                 for node in node_ids
             ],
+            "indoor_nodes": [
+                node_indices[node]
+                for node in node_ids
+                if graph.nodes[node].get("indoor")
+            ],
             "edges": edge_table,
             "sunlight": sunlight_table,
             "first_minute": 480,
@@ -299,6 +314,8 @@ def build() -> None:
                 "name": item["name"],
                 "source": item["source"],
                 "geometry_note": item["geometry_note"],
+                "access_note": item.get("access_note", ""),
+                "step_free": item.get("step_free"),
                 "lines": [
                     [item["points"][a], item["points"][b]]
                     for a, b in item["links"]

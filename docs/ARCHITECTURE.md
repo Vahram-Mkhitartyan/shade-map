@@ -146,3 +146,18 @@ per node, not a globally optimal time-dependent solver. Python presets are for
 the existing Tuesday 08:00–17:00 study, entirely within both opening schedules;
 no arbitrary-day preset service is claimed. The offline solar date/time window
 is unchanged. Holiday/event closures and live door status are unavailable.
+
+Durham adds credential-aware access metadata to the same edge model. Each edge
+can carry an `access_after` minute and `required_access` identifier. The offline
+router accepts user access eligibility separately from the graph and rejects a
+traversal ending after the cutoff when eligibility is absent. This supports a
+route becoming unavailable after a live delay without mixing identity state into
+static campus geometry.
+
+Covered-walkway observations become explicit centerlines whose endpoints split
+the nearest eligible pedestrian edges. A feature can restrict those connections
+to named paths either globally or per endpoint. The Creativity Commons trace
+uses Palm Walk at both ends; the Engineering Center trace uses the north cross
+path and a separate south tie through the Annex/A-Wing gap. Endpoint ties are
+bounded and remain unroofed; only the observed centerline receives the roof
+proxy.

@@ -153,6 +153,25 @@ test(
   },
 );
 
+test(
+  "Engineering Center passage connects Annex gap to north cross path",
+  { skip: !fs.existsSync(payloadPath) },
+  () => {
+    const campus = JSON.parse(fs.readFileSync(payloadPath, "utf8"));
+    const walkway = campus.covered_walkways.find(
+      (path) => path.id === "engineering-center-west-covered-spine",
+    );
+    assert.equal(walkway.routing_enabled, true);
+    assert.equal(walkway.both_ends_connected, true);
+    const router = new OfflineRouter(campus.network);
+    const result = router.routes(walkway.points[0], walkway.points[1], 840);
+    assert.ok(result.candidates[0].distance > 118);
+    assert.ok(result.candidates[0].distance < 125);
+    assert.equal(result.candidates[0].sunny, 0);
+    assert.ok(result.offsets.every((distance) => distance < 0.02));
+  },
+);
+
 test("indoor schedule uses arrival and exit time with outdoor fallback", () => {
   const router = fixture();
   router.network.weekday = 6;
@@ -169,6 +188,31 @@ test("indoor schedule uses arrival and exit time with outdoor fallback", () => {
   assert.ok(Math.abs(indoor.duration - (120 / 1.4 + 20)) < 1e-8);
   const closing = router.routes([0, 0], [100, 0], 609.5);
   assert.ok(closing.candidates.every((route) => !route.passages.length));
+});
+
+test("credentialed indoor access begins at the configured cutoff", () => {
+  const router = fixture();
+  const schedule = Array.from({ length: 7 }, () => [480, 1140]);
+  for (const edge of [1, 2]) {
+    router.network.edges[edge].push(
+      10,
+      schedule,
+      "credentialed-lobby",
+      600,
+      "asu-id",
+    );
+  }
+  const publicRoute = router.routes([0, 0], [100, 0], 590);
+  assert.ok(publicRoute.candidates.some((route) => route.passages.length));
+  const restrictedRoute = router.routes([0, 0], [100, 0], 610);
+  assert.ok(
+    restrictedRoute.candidates.every((route) => !route.passages.length),
+  );
+  router.setAccess("asu-id", true);
+  const credentialedRoute = router.routes([0, 0], [100, 0], 610);
+  assert.ok(
+    credentialedRoute.candidates.some((route) => route.passages.length),
+  );
 });
 
 test("search evaluates sunlight at predicted edge arrival time", () => {
@@ -389,14 +433,18 @@ test(
 );
 
 test(
-  "exported MU and Hayden corridors route indoors with door delays",
+  "exported indoor corridors route with schedules and door delays",
   {
     skip: !fs.existsSync(payloadPath),
   },
   () => {
     const campus = JSON.parse(fs.readFileSync(payloadPath, "utf8"));
     const router = new OfflineRouter(campus.network);
-    for (const id of ["mu-main-public-corridor", "hayden-level-one"]) {
+    for (const id of [
+      "mu-main-public-corridor",
+      "hayden-level-one",
+      "durham-east-west",
+    ]) {
       const passage = campus.indoor_passages.find((p) => p.id === id);
       assert.ok(passage);
       const points = [passage.lines[0][0], passage.lines.at(-1)[1]];
@@ -409,6 +457,19 @@ test(
       for (const edge of corridor) {
         const index = campus.network.edges.indexOf(edge);
         assert.equal(router.sunlight(840)[index], 0);
+      }
+      if (id === "durham-east-west") {
+        assert.ok(edges.every((edge) => edge[6] === 1080));
+        assert.ok(edges.every((edge) => edge[7] === "asu-id"));
+        const restricted = router.routes(...points, 1090);
+        assert.ok(
+          restricted.candidates.every((route) => !route.passages.includes(id)),
+        );
+        router.setAccess("asu-id", true);
+        const credentialed = router.routes(...points, 1090);
+        assert.ok(
+          credentialed.candidates.some((route) => route.passages.includes(id)),
+        );
       }
     }
   },

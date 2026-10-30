@@ -32,12 +32,15 @@ retains the earlier synthetic demo. Eventual platforms: iPhone and Android.
 
 ## Existing sources and coverage
 
-Height enrichment is **paused at the owner's request**. No new height source was
-applied. Current ASU records, OSM tags, levels and fallback assumptions remain.
+Broad height enrichment is **paused at the owner's request**. The only later
+exception is a direct owner observation for The Crêpe Club: approximately 3 m,
+recorded as a low-confidence visual estimate. Current ASU records, OSM tags,
+levels and fallback assumptions otherwise remain.
 
 - Visible neighborhood: lon -111.945 to -111.914, lat 33.409 to 33.439.
 - Context: 12,479 polygons/parts; 2,582 polygons visible.
-- Visible heights: 198 ASU records, 37 OSM tags, 117 levels estimates, 2,230 fallbacks.
+- Visible heights: 198 ASU records, one owner estimate, 37 OSM tags, 117 levels
+  estimates and 2,229 fallbacks.
 - Walking network: 10,511 connected nodes and 11,339 undirected links.
 - Custom edge fields: 133 five-minute states, 08:00–19:00 on October 20, 2026.
 - Visible parts: 3 with containment owners, 11 orphans retained without cuts.
@@ -45,10 +48,10 @@ applied. Current ASU records, OSM tags, levels and fallback assumptions remain.
 
 ## Verification
 
-- 69 Python tests pass, including ownership, elevated/ground part preservation,
+- 72 Python tests pass, including ownership, elevated/ground part preservation,
   ambiguity, graph detours, sampling, arrival time, cache separation and prior
   solar/geometry/source checks. Ruff lint and formatting pass.
-- Nineteen Node tests pass (including the DOM integration test), including actual exported-network custom trips, distant and
+- Twenty-one Node tests pass (including the DOM integration test), including actual exported-network custom trips, distant and
   disconnected endpoints, zero trips, arrival-time fields and extreme viewport
   positions/zoom levels, route stability and simulated progress.
 - A DOM-only integration check passes: initialization, custom start/finish taps,
@@ -132,8 +135,8 @@ the existing Tuesday 08:00–17:00 study, entirely within both opening schedules
 no arbitrary-day preset service is claimed. The offline solar date/time window
 is unchanged. Holiday/event closures and live door status are unavailable.
 
-Current verification: 69 Python tests and 19 JavaScript/DOM tests pass,
-including real exported MU/Hayden routes, indoor cover, schedule boundaries,
+Current verification: 72 Python tests and 21 JavaScript/DOM tests pass,
+including real exported indoor routes, indoor cover, schedule boundaries,
 arrival-time closure exclusion, doorway delay, outdoor fallback and simulator
 completion across scheduled replans. All three exported campus journeys finish
 in both routing preferences without nearest-path oscillation. Ruff and formatting
@@ -167,5 +170,39 @@ The session compares the valid current remainder with the new preferred route.
 It keeps the current route when weighted improvement is under 20 seconds and
 switches immediately if the current path becomes invalid. Shade-mode comparison
 uses duration plus three times sunny seconds; displayed duration remains physical
-travel time. Nineteen JavaScript/DOM tests pass. Browser paint, animation timing,
+travel time. Twenty-one JavaScript/DOM tests pass. Browser paint, animation timing,
 touch behavior and real GPS remain unverified.
+
+## Durham Hall indoor routing — October 29, 2026
+
+The owner-marked Durham Hall trace connects ASU entrance record 203 on the east
+side to accessible entrance record 226 on the west side. It is enabled as a
+bidirectional indoor corridor with the existing estimated ten-second doorway
+delay. The route is geographically traced and approximate rather than registered
+from a floor plan.
+
+The owner reports that both entrances are public through 18:00 and require an
+ASU ID afterward. The offline UI now has an explicit **I have an ASU ID** option;
+the router excludes Durham after 18:00 unless it is selected. The prototype only
+claims routing during its 08:00–19:00 solar-data window. Durham's final closing
+time and the east entrance's step-free status remain unconfirmed.
+
+## Engineering Center internal covered passage — October 30, 2026
+
+The owner corrected the roof-covered north-south path after seeing the first map
+placement, then supplied a closer screenshot for a second correction. The trace
+now sits farther east in the narrow space beside Engineering Annex. Its covered
+portion begins in the Annex/A-Wing gap, does not cross A-Wing, and ends on the
+mapped cross path immediately north of F-Wing. The earlier Palm Walk coverage
+has been removed.
+
+OSM does not contain a pedestrian edge inside the south gap. The graph therefore
+uses a 57 m unroofed registration tie west through the visible open gap to Palm
+Walk. That tie makes the passage routable but receives no roof-cover credit and
+still needs an on-site connectivity check.
+
+The covered centerline receives the same zero-direct-sun roof proxy used by the
+Creativity Commons colonnade. Roof width, height, support obstructions and
+low-angle side sunlight remain unmodeled. The corrected straight trace is still
+based on the owner-marked screenshot and needs a field check for metre-level
+alignment.

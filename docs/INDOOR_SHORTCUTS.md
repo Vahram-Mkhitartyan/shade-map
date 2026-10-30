@@ -232,3 +232,16 @@ per node, not a globally optimal time-dependent solver. Python presets are for
 the existing Tuesday 08:00–17:00 study, entirely within both opening schedules;
 no arbitrary-day preset service is claimed. The offline solar date/time window
 is unchanged. Holiday/event closures and live door status are unavailable.
+
+## Durham Hall enabled — October 29, 2026
+
+The owner-marked route connects the mapped east entrance (ASU record 203) to the
+west accessible entrance (record 226). Both are reported as public through 18:00;
+ASU ID is required afterward. The app exposes that eligibility as an explicit
+checkbox and excludes the corridor after the cutoff when it is not selected.
+
+The centerline follows the marked east-to-west bend and is geographically
+registered from the two entrance records. It is approximate, bidirectional and
+receives indoor cover credit. The current route schedule is limited to the
+prototype's 08:00–19:00 solar-data window. Final building closing time and
+step-free access at the east door remain unconfirmed.

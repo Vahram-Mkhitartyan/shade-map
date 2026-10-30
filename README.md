@@ -21,9 +21,12 @@ continuously behind the walker while a faint trail preserves walked history.
 Displayed building shadows follow the simulated clock by continuously blending
 neighboring Python-generated shadow frames; routing exposure retains its
 documented five-minute field resolution.
-Owner-confirmed MU and Hayden indoor passages are included, with reported
-opening hours and estimated doorway delays. Brown lines mark approximate corridors;
-route cards identify indoor shortcuts.
+Owner-confirmed MU, Hayden and Durham indoor passages are included, with reported
+opening hours and estimated doorway delays. Durham is public through 18:00 and
+requires the **I have an ASU ID** option afterward. Brown lines mark approximate
+corridors; route cards identify indoor shortcuts.
+Owner-confirmed roof-covered paths are also routable beside Creativity Commons
+and from the Engineering Annex/A-Wing gap through F-Wing.
 The campus file uses OpenStreetMap footprints and paths, with height estimates
 clearly marked, enriched with ASU facility height records. See [campus data notes](docs/CAMPUS_DATA.md) for coverage and refresh
 steps. Rebuild with `.venv/bin/python scripts/build_campus.py`.

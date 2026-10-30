@@ -59,6 +59,7 @@ test(
       d = w.document;
     assert.deepEqual(errors, []);
     assert.ok(d.querySelectorAll("#buildings path").length > 2000);
+    assert.equal(d.getElementById("asu-id").checked, false);
     const campus = JSON.parse(source.match(/const campus = (.*);/)[1]);
     assert.ok(campus.frames[12].shadows.length > 2500);
     assert.equal(
@@ -109,6 +110,8 @@ test(
     );
     slider.value = "12";
     slider.dispatchEvent(new w.Event("input"));
+    d.getElementById("asu-id").click();
+    assert.equal(d.getElementById("asu-id").checked, true);
     d.getElementById("fastest").click();
     assert.match(
       d.querySelector(".route.selected strong").textContent,

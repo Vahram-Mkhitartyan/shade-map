@@ -550,6 +550,9 @@
             ><input id="estimated" type="checkbox" checked /> Show
             estimated-height shadows</label
           >
+          <label class="height-toggle"
+            ><input id="asu-id" type="checkbox" /> I have an ASU ID</label
+          >
           <p class="note" id="coverage"></p>
           <p class="note">
             Candidates use mapped pedestrian paths; “More shade” minimizes sunny
@@ -685,7 +688,11 @@
             Number(journey.value)
           ];
         const minute = campus.frames[Number(slider.value)].minute;
-        const key = JSON.stringify([customEndpoints, minute]);
+        const key = JSON.stringify([
+          customEndpoints,
+          minute,
+          document.getElementById("asu-id").checked,
+        ]);
         if (key !== routeCacheKey) {
           routeCacheKey = key;
           try {
@@ -844,7 +851,12 @@
           strong.textContent =
             route.name + (index === recommendation() ? " · suggested" : "");
           const small = document.createElement("small");
-          small.textContent = `${minutes(route.duration)} · ${Math.round(route.distance)} m · ${route.shade}% shade${route.passages?.length ? " · via " + route.passages.map((id) => (id.startsWith("mu-") ? "MU" : "Hayden")).join(", ") : ""}`;
+          const passageNames = {
+            "mu-main-public-corridor": "MU",
+            "hayden-level-one": "Hayden",
+            "durham-east-west": "Durham",
+          };
+          small.textContent = `${minutes(route.duration)} · ${Math.round(route.distance)} m · ${route.shade}% shade${route.passages?.length ? " · via " + route.passages.map((id) => passageNames[id] || id).join(", ") : ""}`;
           button.append(strong, small);
           button.addEventListener("click", () => {
             selectedRoute = index;
@@ -924,7 +936,7 @@
         node.append(title);
         node.addEventListener("click", () => {
           document.getElementById("inspector").textContent =
-            `${building.name} · ${building.height} m · ${building.source === "asu" ? "ASU facility height (feet converted to metres)" : building.source === "tagged" ? "OSM height tag (not field-verified)" : building.source === "levels" ? "estimated from levels × 3 m" : "assumed 9 m; height missing"} · OSM ${building.osm_id}${building.height_reference ? " · " + building.height_reference : ""}`;
+            `${building.name} · ${building.height} m · ${building.source === "asu" ? "ASU facility height (feet converted to metres)" : building.source === "owner-estimate" ? "owner visual estimate (low confidence)" : building.source === "tagged" ? "OSM height tag (not field-verified)" : building.source === "levels" ? "estimated from levels × 3 m" : "assumed 9 m; height missing"} · OSM ${building.osm_id}${building.height_reference ? " · " + building.height_reference : ""}`;
         });
         document.getElementById("buildings").append(node);
       });
@@ -945,7 +957,13 @@
         line.addEventListener("click", () => {
           document.getElementById("inspector").textContent =
             walkway.name +
-            ": full Palm Walk-facing building length. Roof and columns reported by owner; position approximately traced. Both Palm Walk connections confirmed by owner. Enabled for routing with a roof-cover shade proxy; low-angle side sun and column obstructions are not modeled.";
+            ": " +
+            walkway.extent +
+            ". " +
+            walkway.routing_status +
+            ". " +
+            walkway.solar_model_status +
+            ".";
         });
         document.getElementById("covered-walkways").append(line);
       }
@@ -967,7 +985,10 @@
               passage.name +
               ": " +
               passage.geometry_note +
-              " Public, step-free access and hours confirmed by owner. Includes an estimated 10 seconds per doorway; holiday closures are not available.";
+              " " +
+              (passage.access_note ||
+                "Public, step-free access and hours confirmed by owner.") +
+              " Includes an estimated 10 seconds per doorway; holiday closures are not available.";
           });
           document.getElementById("covered-walkways").append(line);
         }
@@ -1151,6 +1172,12 @@
       document
         .getElementById("estimated")
         .addEventListener("change", () => render(false));
+      document.getElementById("asu-id").addEventListener("change", (event) => {
+        router.setAccess("asu-id", event.target.checked);
+        routeCacheKey = "";
+        resetLive("ASU ID access changed. Start a new simulated walk.");
+        render();
+      });
       ["fastest", "shade"].forEach((mode) =>
         document.getElementById(mode).addEventListener("click", () => {
           preference = mode;

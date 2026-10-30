@@ -42,14 +42,21 @@ class MinHeap {
 }
 
 class OfflineRouter {
-  constructor(network) {
+  constructor(network, { access = [] } = {}) {
     this.network = network;
+    this.access = new Set(access);
+    this.indoorNodes = new Set(network.indoor_nodes || []);
     this.adjacency = network.points.map(() => []);
     network.edges.forEach(([first, second, length], index) => {
       this.adjacency[first].push([second, length, index]);
       this.adjacency[second].push([first, length, index]);
     });
     this.decoded = new Map();
+  }
+
+  setAccess(name, allowed) {
+    if (allowed) this.access.add(name);
+    else this.access.delete(name);
   }
 
   sunlight(minute) {
@@ -78,6 +85,9 @@ class OfflineRouter {
     let best = -1;
     let distance = Infinity;
     this.network.points.forEach(([east, north], index) => {
+      // Map pins represent outdoor positions. Enter a building through its
+      // doorway edge instead of snapping directly behind an access check.
+      if (this.indoorNodes.has(index)) return;
       const candidate = Math.hypot(point[0] - east, point[1] - north);
       if (candidate < distance) {
         best = index;
@@ -105,6 +115,12 @@ class OfflineRouter {
         result.penalty += condition.penaltySeconds || 0;
     }
     return result;
+  }
+
+  canUse(requiredAccess, accessAfter, end) {
+    if (!requiredAccess || accessAfter == null || end <= accessAfter)
+      return true;
+    return this.access.has(requiredAccess);
   }
 
   shortestPath(start, finish, departure, shadeWeight, conditions = []) {
@@ -135,7 +151,8 @@ class OfflineRouter {
         break;
       }
       for (const [next, length, edge] of this.adjacency[node]) {
-        const [, , , delay = 0, schedule] = this.network.edges[edge];
+        const [, , , delay = 0, schedule, , accessAfter, requiredAccess] =
+          this.network.edges[edge];
         const entry = departure + elapsed / 60;
         const live = this.edgeConditions(edge, entry, conditions);
         if (live.blocked) continue;
@@ -144,6 +161,7 @@ class OfflineRouter {
         if (nextElapsed > this.network.max_walk_seconds) continue;
         const end = departure + nextElapsed / 60;
         if (!this.isOpen(schedule, entry, end)) continue;
+        if (!this.canUse(requiredAccess, accessAfter, end)) continue;
         const sunlight = this.sunlight(entry + seconds / 120);
         const nextCost =
           cost +
@@ -191,8 +209,16 @@ class OfflineRouter {
     let distance = 0;
     const passages = new Set();
     for (const edge of path.edges) {
-      const [, , length, delay = 0, schedule, passage] =
-        this.network.edges[edge];
+      const [
+        ,
+        ,
+        length,
+        delay = 0,
+        schedule,
+        passage,
+        accessAfter,
+        requiredAccess,
+      ] = this.network.edges[edge];
       const entry = departure + duration / 60;
       const live = this.edgeConditions(edge, entry, conditions);
       if (live.blocked) throw new Error("A live condition blocks this route.");
@@ -205,6 +231,15 @@ class OfflineRouter {
         )
       ) {
         throw new Error("An indoor passage closes before this walk completes.");
+      }
+      if (
+        !this.canUse(
+          requiredAccess,
+          accessAfter,
+          departure + (duration + seconds) / 60,
+        )
+      ) {
+        throw new Error("This indoor passage requires ASU ID at that time.");
       }
       distance += length;
       if (passage) passages.add(passage);

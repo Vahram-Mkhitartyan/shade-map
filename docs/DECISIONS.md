@@ -181,3 +181,34 @@ Keep the simulator's current route as one stable SVG path. Reveal a muted travel
 stroke and retract the green remaining stroke by continuous path distance. Replace
 the geometry only when routing actually selects a different path. This avoids the
 node-by-node disappearance that made correct route progress look discontinuous.
+
+## Credential-aware Durham access — October 29, 2026
+
+Durham Hall's owner-marked east-west corridor is routable. Public access ends at
+18:00; later traversal requires the user to explicitly select **I have an ASU
+ID**. Credential state is a router input and each restricted edge carries its
+cutoff and required access type. This keeps access eligibility separate from the
+building's weekly open interval and lets a live delay invalidate a route that
+would cross the cutoff without credentials.
+
+The corridor uses ASU entrance records 203 and 226 plus an approximate bend from
+the owner's map trace. It is enabled for the current 08:00–19:00 data window.
+Final closing time and east-door step-free status are unknown and are not claimed.
+
+## Narrow owner-observed height override — October 29, 2026
+
+Keep bulk height enrichment paused, but accept a direct, building-specific owner
+observation when it identifies one exact footprint. Store it separately from OSM
+and ASU source data with uncertainty and provenance. The Crêpe Club footprint
+`way/574632563` is set to 3 m from an owner visual estimate and remains explicitly
+low confidence. Exact overrides run after ASU matching and affect no other
+building or part.
+
+## Register observed roof centerlines independently — October 30, 2026
+
+The corrected Engineering Center trace is a separate internal passage east of
+Palm Walk. Its covered portion begins in the open gap between Engineering Annex
+and A-Wing, avoiding A-Wing entirely, and ends on the mapped cross path north of
+F-Wing. The gap has no mapped pedestrian edge, so routing uses a bounded,
+unroofed registration tie west to Palm Walk. Do not infer roof cover for that tie,
+Palm Walk or neighboring branches.

@@ -81,3 +81,34 @@ def apply_asu_heights(
         )
         matches += 1
     return enriched, matches
+
+
+def apply_height_overrides(
+    buildings: List[MapBuilding], overrides: List[dict]
+) -> Tuple[List[MapBuilding], int]:
+    """Apply explicit, narrowly scoped height observations by OSM ID."""
+    overrides_by_id = {item["osm_id"]: item for item in overrides}
+    updated = []
+    matches = 0
+    for item in buildings:
+        override = overrides_by_id.get(item.osm_id)
+        if override is None:
+            updated.append(item)
+            continue
+        height = float(override["height_m"])
+        if not isfinite(height) or height <= item.model.min_height_m:
+            raise ValueError(f"Invalid height override for {item.osm_id}")
+        updated.append(
+            replace(
+                item,
+                model=Building(
+                    item.model.footprint,
+                    height,
+                    item.model.min_height_m,
+                ),
+                height_source=override["source"],
+                height_reference=override["reference"],
+            )
+        )
+        matches += 1
+    return updated, matches
